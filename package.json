@@ -1,0 +1,101 @@
+{
+  "name": "coreweb",
+  "version": "0.13.3",
+  "description": "Web lib",
+  "main": "./build/core.cjs.js",
+  "module": "./build/core.es.js",
+  "scripts": {
+    "build": "npx gulp js",
+    "build-ws": "npx gulp ws",
+    "build-wa": "npx gulp wa",
+    "build-full": "npx gulp js ws wa",
+    "watch": "npx gulp wjs",
+    "watch-ws": "npx gulp wws",
+    "watch-wa": "npx gulp wwa",
+    "watch-full": "npx gulp wjs wws wwa"
+  },
+  "exports": {
+    ".": {
+      "require": "./build/core.cjs.js",
+      "import": "./build/core.es.js",
+      "browser": "./build/core.js",
+      "min": {
+        "require": "./build/core.cjs-min.js",
+        "import": "./build/core.es-min.js",
+        "browser": "./build/core-min.js"
+      }
+    },
+    "./lite": {
+      "require": "./build/core_lite.cjs.js",
+      "import": "./build/core_lite.es.js",
+      "browser": "./build/core_lite.js",
+      "min": {
+        "require": "./build/core_lite.cjs-min.js",
+        "import": "./build/core_lite.es-min.js",
+        "browser": "./build/core_lite-min.js"
+      }
+    },
+    "./dev": {
+      "require": "./build/core_dev.cjs.js",
+      "import": "./build/core_dev.es.js",
+      "browser": "./build/core_dev.js",
+      "min": {
+        "require": "./build/core_dev.cjs-min.js",
+        "import": "./build/core_dev.es-min.js",
+        "browser": "./build/core_dev-min.js"
+      }
+    },
+    "./lite_dev": {
+      "require": "./build/core_dev_lite.cjs.js",
+      "import": "./build/core_dev_lite.es.js",
+      "browser": "./build/core_dev_lite.js",
+      "min": {
+        "require": "./build/core_dev_lite.cjs-min.js",
+        "import": "./build/core_dev_lite.es-min.js",
+        "browser": "./build/core_dev_lite-min.js"
+      }
+    },
+    "./*": {
+      "require": "./build/parts/*.cjs.js",
+      "import": "./build/parts/*.es.js",
+      "browser": "./build/*.js",
+      "min": {
+        "require": "./build/parts/*.cjs-min.js",
+        "import": "./build/parts/*.es-min.js",
+        "browser": "./build/*-min.js"
+      }
+    }
+  },
+  "overrides": {
+    "chokidar": "3.5.3",
+    "glob-parent": "^6.0.2",
+    "glob-stream": "7.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-replace": "^5.0.2",
+    "@rollup/plugin-terser": "^0.4.3",
+    "gulp": "^4.0.2",
+    "gulp-autoprefixer": "^8.0.0",
+    "gulp-babel": "^8.0.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-csso": "^4.0.1",
+    "gulp-if": "^3.0.0",
+    "gulp-postcss": "^9.0.1",
+    "gulp-rename": "^2.0.0",
+    "gulp-sass": "^5.1.0",
+    "gulp-terser": "^2.1.0",
+    "rollup": "^4.22.4",
+    "rollup-stream": "^1.24.1",
+    "sass": "^1.55.0",
+    "terser": "^5.15.1",
+    "vinyl-buffer": "^1.0.1",
+    "webpack-cli": "^4.10.0",
+    "webpack-stream": "^7.0.0"
+  },
+  "keywords": [
+    "web",
+    "api"
+  ],
+  "author": "S³217",
+  "license": "MIT"
+}
