@@ -151,6 +151,7 @@ console.log(attrValue); // Output: "header"
 // Getting all attributes 
 var attributes = el.attr(); 
 console.log(attributes); // Output: NamedNodeMap {0: class, class: class, length: 1}
+</script>
 ```
 
 ___
