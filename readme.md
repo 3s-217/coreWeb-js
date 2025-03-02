@@ -1,6 +1,6 @@
 # coreWeb
 
-version: ```0.13.3```
+version: ```0.13.6```
 
 A JavaScript library for manipulating the HTML DOM, offering multiple build types for flexible integration.
 
@@ -151,7 +151,6 @@ console.log(attrValue); // Output: "header"
 // Getting all attributes 
 var attributes = el.attr(); 
 console.log(attributes); // Output: NamedNodeMap {0: class, class: class, length: 1}
-</script>
 ```
 
 ___
@@ -291,6 +290,16 @@ CoreWeb includes submodules and plugins that can be used to extend its functiona
 ### Prebuilt Folder
 
 The prebuilt folder contains prebuilt versions of the lib and it submodules. These files can be used with a build system or imported directly in your code.
+
+## Changelogs
+
+___
+[2/03/2025]
+
+- Version change
+  - ```0.13.3``` >> ```0.13.4```
+  
+- fixed vdoms' comp errors
 
 ## License
 

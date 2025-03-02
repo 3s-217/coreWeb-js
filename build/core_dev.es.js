@@ -7,7 +7,7 @@
  * @description Core utilities
  * @license MIT
  * @author 3s217
- * @version 0.13.0
+ * @version 0.13.3
  */
 const utils = async (rt) => {
     if (!rt) throw new Error('util requires extens {./core.js}');
@@ -227,23 +227,24 @@ const utils = async (rt) => {
                         j(i) ? h(v) :
                             j('-') ? v < 0 : j('+') ? v > 0 :
                                 j('array') || j('arr') ? c() :
-                                    j('null') ? v === l :
-                                        j('unu') ? v === l || v === d :
-                                            j('emp') ? v === l || v === d || v === '' :
-                                                j('bool') ? h(b) :
-                                                    j('str') || j(s) ? h(s) :
-                                                        j("func") || j("fn") || j(f) ? h(f) :
-                                                            j('obj') || j(o) ? (h(o) && !c() && v !== l) :
-                                                                j('set') ? z(Set) :
-                                                                    j('map') ? z(Map) :
-                                                                        j('wSet') ? z(WeakSet) :
-                                                                            j('wMap') ? z(WeakMap) :
-                                                                                j('inst') ? z(u) :
-                                                                                    j('sym') || j(sym) ? h(sym) :
-                                                                                        j('date') ? z(Date) :
-                                                                                            j('regexp') || j('rx') ? z(RegExp) :
-                                                                                                j('promise') || j("prm") ? z(Promise) :
-                                                                                                    j('error') || j('err') ? z(Error) : d;
+                                    j('null') || j('nl') ? v === l :
+                                        j('ud') ? v === d :
+                                            j('unu') ? v === l || v === d :
+                                                j('emp') ? v === l || v === d || v === '' :
+                                                    j('bool') ? h(b) :
+                                                        j('str') || j(s) ? h(s) :
+                                                            j("func") || j("fn") || j(f) ? h(f) :
+                                                                j('obj') || j(o) ? (h(o) && !c() && v !== l) :
+                                                                    j('set') ? z(Set) :
+                                                                        j('map') ? z(Map) :
+                                                                            j('wSet') ? z(WeakSet) :
+                                                                                j('wMap') ? z(WeakMap) :
+                                                                                    j('inst') ? z(u) :
+                                                                                        j('sym') || j(sym) ? h(sym) :
+                                                                                            j('date') ? z(Date) :
+                                                                                                j('regexp') || j('rx') ? z(RegExp) :
+                                                                                                    j('promise') || j("prm") ? z(Promise) :
+                                                                                                        j('error') || j('err') ? z(Error) : d;
         }
         //toPer: (total, avail, cur) => (cur / (total - avail) * 100),
         //fromPer: (total, avail, per) => ((per / 100) * (total - avail)),
@@ -255,229 +256,218 @@ const utils = async (rt) => {
  */
 const vdom = async (rt) => {
     if (!rt) throw new Error('vdom requires __o {mknode,mkEl,utils} {./core.js}');
-    const { mknode, log, _pEl: parse, utils } = rt;
+    const { mknode, log, _pEl: parse, utils, each } = rt;
+    const len = (v) => (v?.length ?? v?.size);
+    const Okl = (v) => len(Object.keys(v)) == 0;
+    const tcss = (i, m) => i.split(';').forEach(c => {
+        const [x, y] = c.split(':').map((s, i) => (!i ? s.replace(/-([a-z])/g, (m, l) => l.toUpperCase()) : s).trim());
+        if (x && y) m.set(x, y);
+    });
+    //** start new 
+    const _e = k => k.slice(2).toLowerCase();
+    const rlt = rEl => (rEl?.__listen && !Okl(rEl?.__listen ?? {})) ? new rt(rEl).off(Object.fromEntries(Object.entries(rEl.__listen).map(([k, v]) => [_e(k), v]))) : 0;
+    function __vd2(rEl, vEl, ovEl, opt = {}) {
+        const { type: ty } = utils;
+        const { dbg } = opt;
+        let res;
+        //====================================
+        if (dbg && ty(vEl, "obj") && vEl.type)
+            log('__vd_p', rEl, vEl.type, 'parse', parse(vEl));
+        if (!rEl && ty(vEl, 'obj')) return mknode(vEl, dbg);
+        if (!rEl && (ty(vEl, 'str') || ty(vEl, 'num'))) return new Text(vEl);
+        //====================================
+        try { res = comp2(rEl, vEl, ovEl, opt); }
+        catch (e) { log(e, rEl, vEl, ovEl, opt); return null; }
+        if (ty(res, "obj")) {
+            if (dbg)
+                log('__vd-res', res);
+            /* 
+            ? shortname all res keys 
+            *- rm,tag,text
+            *- listener only
+            */
+            if (res.rm || res.tag) {
+                if (rEl) {
+                    rlt(rEl);
+                    let n;
+                    res.tag ? (rEl.parentNode.replaceChild(n = mknode(vEl, dbg), rEl), rEl = n) : rEl.remove();
+                }
+                return null;
+            }
+            //! problem with text handling ?
+            //if (res.txt) return rEl ? (rEl.textContent = vEl, 0) : 0;
+        }
+        //====================================
+        //* children logic
+        //====================================
+        if (vEl.props?.html) return null;
+        const rch = Array.from(rEl.childNodes ?? []);
+        const vch = vEl.children;
+        const och = ovEl ? ovEl?.children : [];
+        const clen = Math.max(len(rch), len(vch));
+        for (let i = 0; i < clen; i++) {
+            //log('__vd_ch_' + i, rch[i], vch[i]);
+            const nEl = __vd2(rch[i] ?? null, vch[i] ?? null, och[i] ?? null, opt);
+            //log(nEl, rch[i], nEl === rch[i]);
+            if (nEl) {
+                if (!rch[i]) { rEl.append(nEl); }
+                else if (!rch[i].isEqualNode(nEl)) {
+                    //log('new-el-replace', rEl, nEl, i, rch[i], vch[i], och[i]);
+                    rlt(rch[i]);
+                    rch[i].parentNode.replaceChild(nEl, rch[i]);
+                }
+            }
+        }
+        return rEl;
+    }
+    function comp2(rEl, vEl, ovEl, opt = {}) {
+        const { type: ty } = utils;
+        const { root, force, dbg } = opt;
+        if (ty(vEl, 'unu')) return { rm: !!1 };
+        const rl = ty(rEl, 'inst', HTMLElement) ? 1 : ty(rEl, 'inst', Text) ? 2 : 0;
+        //=================================================================================
+        if ((ty(vEl, 'str') || ty(vEl, 'num'))) return (rl == 2 ? rEl.textContent !== vEl : ovEl !== vEl) ? rEl.textContent = vEl : 0;
+        // todo: auto switch real and virtual element ?
+        const [pvel, ovel] = [vEl, ovEl].map(v => ty(v, 'obj') ? parse(v) : 0);
+        if (dbg)
+            log('comp', rEl, vEl, ovEl, pvel, ovel);
+        //=================================================================================
+        if (ty(vEl, 'obj') && (rEl && rEl?.tagName?.toLowerCase() !== pvel.t)) return { tag: !!1 };
+        //! todo:  need better debugging
+        //=================================================================================
+        /*
+        ? shortname all res keys
+        * force update 
+        - attributes <-> props
+        - listeners  <-> props
+        ? or
+        * non force update
+        - vdom <-> vdom
+        */
+        //? list of res keys
+        //* res={ txt, rm, tag};
+        const r = new rt(rEl);
+        if (!rEl.__listen) rEl.__listen = {};
+        const ltn = rEl.__listen;
+        const attr = rEl.attributes;
 
-    let updateQueue = [];
+        //data-|aria-|
+        const pt = /^([a-z]+(?:[A-Z][a-z]+)+|value|checked|disabled|readonly|style)$/;
+        //===================================
+        const [fevts, fattr, fprop, fcss, ecss] = Array(5).fill().map(v=>new Map());
+        tcss(rEl.style.cssText, ecss);
+        //====================================
+        each(vEl.props, 'e', ([k, v]) => {
+            if (k === 'style') v ? ((ty(v, 'str')) ? tcss(v, fcss) : each(v, 'e', x => fcss.set(...x))) : 0;
+            else if (/^(class(Name)?|id|text)$/g.test(k)) ;
+            else if (/^html$/g.test(k)) (v != rEl.innerHtml) ? r.nattr('html', v) : 0;
+            else
+                (k.startsWith('on') ? fevts : /viewBox/.test(k) ? fattr : pt.test(k) ? fprop : fattr).set(k, v);
+        });
+        if (pvel.i) fattr.set('id', pvel.i);
+        //==
+        if (dbg)
+            log('comp_p', pvel, ovel),
+                log('fevts', fevts, 'fprop', fprop, 'fattr', fattr, 'fcss', fcss, 'ecss', ecss),
+                log('comp_el', r.gt.outerHTML);
+        //===============================
+        //* attr
+        // 
+        if (len(fattr) || len(attr)) {
+            let [add, rm] = [{}, []];
+            for (let [k, v] of fattr)
+                if (attr[k]?.value !== v)
+                    add[k] = v;
+            for (let atn of attr)
+                if (!/^class$/.test(atn.name) && !pt.test(atn.name) && !fattr.has(atn.name))
+                    rm.push(atn.name);
+            !Okl(add) ? r.nattr(add) : 0;
+            len(rm) > 0 ? r.nattr(rm, 0, 'r') : 0;
+        }
+        //===============================
+        //* class
+        const rcls = new Set(r.class());
+        const ncls = new Set(pvel.c ? pvel.c.split(/\s+/) : []);
+        if (len(rcls) || len(ncls)) {
+            let add = {};
+            //log('comp_cls', r.gt.outerHTML, r.class().toString(), rcls, ncls);
+            let cl = (n, i, j) => [n, [...i].filter(c => !j.has(c))];
+            [['add', ncls, rcls], ['remove', rcls, ncls]].map(v => cl(...v))
+                .forEach(([k, v]) => v.length ? (add[k] = v) : 0);
+            if (!Okl(add))
+                r.class(add);
+            // log('comp_cls:end', add, r.gt.outerHTML);
+        }
+        //===============================
+        //* style
+        if (len(fcss) || len(ecss)) {
+            let [add, rm] = [{}, []];
+            for (let [k, v] of fcss)
+                if (!ecss.has(k) || (ecss.has(k) && ecss.get(k) !== v))
+                    add[k] = v;
+            for (let [k, v] of ecss) if (!fcss.has(k)) rm.push(k);
+            if (len(rm)) r.css(rm, 0, 'r');
+            if (!Okl(add)) r.css(add);
+        }
+        //===============================
+        //* html js api
+        for (let [k, v] of fprop) rEl[k] !== v ? rEl[k] = v : 0;
+        //===============================
+        //* event listeners
+        if (len(fevts) || !Okl(ltn)) {
+            let [add, rm, chg] = Array(3).fill(Set);
+            for (let [k, v] of fevts)
+                if (!ltn[k]) add.add(k);
+                else if (ltn[k] && ltn[k]?.toString() !== v?.toString()) chg.add(k);
+            for (let k of Object.keys(ltn)) !fevts.has(k) ? rm.add(k) : 0;
+            let f = _e;
+            if (dbg)
+                log('ltn', rEl, { add, rm, chg });
+            if (len(add)) {
+                let ev = {};
+                each(add, k => ev[f(k)] = (rEl.__listen[k] = vEl.props[k]));
+                r.on(ev);
+            }
+            if (len(rm)) {
+                let rv = {};
+                each(rm, k => rv[f(k)] = ltn[k]);
+                r.off(rv);
+                each(rm, k => delete rEl.__listen[k]);
+            }
+            if (len(chg)) {
+                let rv = {}, ev = {};
+                each(chg, k => (rv[f(k)] = ltn[k]));
+                r.off(rv);
+                each(chg, k => ev[f(k)] = (rEl.__listen[k] = vEl.props[k]));
+                r.on(ev);
+            }
+            //fnl.ltn = { add, rm, chg };
+        }
+        //* end ------------>
+    }
+    //** end new 
+    const Q = [];
     let isRendering = false;
 
-    function enqueueUpdate(rtEl, vEl, opt = {}) {
-        updateQueue.push({ rtEl, vEl, opt });
+    function qUpdate(rtEl, vEl, opt = {}) {
+        Q.push({ rtEl, vEl, opt });
         if (!isRendering) {
             isRendering = true;
-            __o.reqAnima(processQueue);
+            rt.reqAnima(processQ);
         }
     }
 
-    function processQueue() {
-        while (updateQueue.length > 0) {
-            const { rtEl, vEl, opt } = updateQueue.shift();
+    function processQ() {
+        while (Q.length > 0) {
+            const { rtEl, vEl, opt } = Q.shift();
             renderVDOM(rtEl, vEl, opt);
         }
         isRendering = false;
     }
     // User-facing render function
     function render(rtEl, vEl, opt = {}) {
-        (opt.force ? renderVDOM : enqueueUpdate)(rtEl, vEl, opt);
+        (opt.force ? renderVDOM : qUpdate)(rtEl, vEl, opt);
     }
-    function comp(rEl, vEl, opt = {}) {
-        if (vEl === undefined || vEl === null) return removeEventListeners(rEl), { remove: true };
-        if (typeof vEl === 'string') return rEl.nodeType === Node.TEXT_NODE && rEl.textContent === vEl;
-        const pvel = parse(vEl);
-        if (rEl?.tagName?.toLowerCase() !== pvel.t) return { tagName: true };
-        const c = new rt(rEl);
-        const t = v => (Object.keys(v).length > 0);
-        const r = i => (Object.entries(i));
-        const at = Array.from(rEl?.attributes || []);
-        const lt = rEl?.__listen ?? {};
-        const vp = vEl.props ?? {};
-        const added = {};
-        const removed = {};
-        const changed = {};
-        const listen = {};
-        // todo: add force update?
-        for (const [key, value] of r(vp)) {
-            if (key.startsWith('on')) {
-                if (opt.debug)
-                    log('listen', lt, value, utils.type(lt[key], 'emp'), lt[key]?.toString() !== value?.toString());
-                if (lt[key] && lt[key]?.toString() !== value?.toString())
-                    listen[key] = value;
-                else if (utils.type(lt[key], 'emp')) listen[key] = value, opt.dbg ? log("lt", lt, key, value) : 0;
-                continue;
-            }
-            let k = key === "html" ? c.attr("html") : (key === "class") ? pvel.c : key == "id" ? pvel.i : c.gat(key);
-            if ((k == undefined || k == "") && value) added[key] = value;
-            else if (k != value) changed[key] = value;
-        }
-        for (const [key] of r(lt)) (!vp[key]) ? listen[key] = null : 0;
-        for (const { name: nm, value: v } of at) {
-            //__o.log(nm, /^(class|id)$/.test(nm), utils.type(pvel[nm[0]], 'unu'), v, pvel[nm[0]], v === pvel[nm[0]]);
-            if (/^(class|id)$/.test(nm)) (utils.type(pvel[nm[0]], 'unu') || pvel[nm[0]] != v) ?
-                changed[nm] = pvel[nm[0]] : 0;
-            else if (!(nm in vp)) removed[nm] = null, (opt.dbg) ? __o.log('comp-d', nm) : 0;
-        }
-        //*! might be a problem => typeof vp.html == 'undefined' hope fully vEl.children.length < 1 controls it
-        if (rEl?.innerHTML?.length > 0 && typeof vp.html == 'undefined' && vEl.children.length < 1) removed.html = null;
-        if (t(changed) || t(removed) || t(added) || t(listen)) {
-            //console.log('comp-up', t(changed), t(removed), t(added) ? added : 0, t(listen));
-            return { added, removed, changed, listen };
-        }
-        return null;
-    }
-    function removeEventListeners(node) {
-        const clone = node.cloneNode(true);
-        node.parentNode.replaceChild(clone, node);
-    }
-    function __vd(rEl, vEl, ovEl, opt = {}) {
-        if (rt.utils.type(vEl, "obj") && vEl.type) {
-            const ne = parse(vEl?.type);
-            opt.dbg ? log(rEl) : 0;
-            opt.dbg ? log('__vd_p', vEl.type, 'parse', ne) : 0;
-        }
-        let { root, force } = opt;
-        let res;
-        if (vEl === undefined || vEl === null) {
-            if (rEl && rEl.parentNode) {
-                rEl.parentNode.removeChild(rEl);
-            }
-            return null;
-        }
-        if (!rEl && typeof vEl !== 'string') {
-            res = mknode(vEl, opt.dbg ?? opt.debug);
-            if (!(root ?? res).__listen)
-                (root ?? res).__listen = {};
-            return res;
-        }
-        if (typeof vEl === 'string') {
-            let t = 'textContent';
-            if (rEl.nodeType === Node.TEXT_NODE) {
-                if (rEl[t] !== vEl) rEl[t] = vEl;
-            }
-            else {
-                rEl[t] = '';
-                rEl.appendChild(document.createTextNode(vEl));
-            }
-            return null;
-        }
-        try {
-            //if ((vEl && vEl.props?.forceUpdate) || force) {
-            //console.log("real-vdom");
-            res = comp(rEl, vEl, opt);
-            //console.timeEnd("real-vdom");
-            //}
-            //else {
-            //console.time("both-vdom");
-            //    res = compV(ovEl ?? {}, vEl, rEl.__listen, opt);
-            //console.timeEnd("both-vdom");
-            //}
-        } catch (error) {
-            log(error);
-            //console.timeEnd("both-vdom");
-            //console.timeEnd("real-vdom");
-        }
-        //}
-        if (rEl && !rEl.__listen) rEl.__listen = {};
-        const y = v => (Object.keys(v)),
-            t = v => (y(v).length > 0),
-            tt = (v) => v && t(v);
-        //======
-        if (__o.utils.type(res, 'obj')) {
-            if (opt.debug)
-                log('vdom', rEl, vEl, res);
-            if (res.remove) {
-                return rEl.remove(), false;
-            }
-            if (res.tagName) {
-                if (rEl) {
-                    rEl.parentNode.replaceChild(mknode(vEl, opt.dbg ?? opt.debug), rEl);
-                }
-                return false;
-            }
-            let r = new rt(rEl);
-            if (tt(res.added)) {
-                if (!res?.added?.forceUpdate) {
-                    r.attr(res.added);
-                }
-            }
-            if (tt(res.removed)) {
-                for (const key of y(res.removed)) {
-                    if (opt.debug) log('removed', key, res.removed[key]);
-                    if (!/force(U|u)padate/i.test(key))
-                        r.attr(key, 0, 'r');
-                }
-            }
-            if (tt(res.changed)) {
-                if (opt.debug) log('changed', res.changed);
-                for (const key of y(res.changed)) {
-                    if (force || !utils.type(res.changed[key], "unu") || /force(U|u)padate/i.test(key)) {
-                        if (opt.debug) log('changed', key);
-                        if (rEl instanceof HTMLInputElement && key === 'value') {
-                            if (rEl.value !== vEl.props.value) {
-                                rEl.value = vEl.props.value;
-                            }
-                        } else if (/force(U|u)padate/i.test(key)) ;
-                        else {
-                            r.attr(key, res.changed[key]);
-                        }
-                    }
-                    //__o.log(rEl);
-                }
-            }
-            if (opt.debug && tt(res.listen))
-                log(vEl, res.listen);
-            if (tt(res.listen)) {
-                if (opt.debug && rEl.__listen) log(Object.entries(rEl.__listen));
-                for (const key of y(rEl.__listen)) {
-                    if (!key || !key.startsWith('on')) continue;
-                    let v = rEl.__listen[key];
-                    if (res.listen[key] == null || v?.toString() !== vEl?.props[key]?.toString()) {
-                        if (opt.debug) log('off', rEl, key, res.listen[key]);
-                        var k = key.slice(2);
-                        if (__o.utils.type(v, 'obj'))
-                            r.off(k, v.f ?? v.fn, v.o ?? v.opt);
-                        else r.off(k, v);
-                        delete rEl.__listen[key];
-                    }                }
-                for (const key of y(vEl.props)) {
-                    if (!key || !key.startsWith('on')) continue;
-                    let v = rEl.__listen[key] = vEl.props[key], k = key.slice(2);                    if (__o.utils.type(v, 'obj'))
-                        r.on(k, v.f ?? v.fn, v.o ?? v.opt);
-                    else r.on(k, v);
-                }
-            }
-        }
-        //rt.log(vEl.props);
-        if (vEl.props?.html) return null;
-        const rch = Array.from(rEl.childNodes ?? []);
-        const vch = vEl.children;
-        const och = ovEl ? ovEl?.children : [];
-        const length = Math.max(rch.length, vch?.length);
-        for (let i = 0; i < length; i++) {
-            if (opt.dbg) __o.log("rendering", i, rch[i], vch[i], och[i]);
-            if (vch[i] == "") continue;
-            let newrEl = __vd(rch[i] ?? null, vch[i] ?? null, och[i] ?? null, opt);
-            if (newrEl) {
-                if (rch[i] !== newrEl) {
-                    if (rch[i]) {
-                        if (opt.debug) log(rch[i].__listen);
-                        for (const key of y(rch[i].__listen)) {
-                            if (!key || !key.startsWith('on')) continue;
-                            let v = rch[i].__listen[key];
-                            if (v?.toString() !== vEl?.props[key]?.toString()) {
-                                var k = key.slice(2);
-                                if (rt.utils.type(v, 'obj'))
-                                    r.off(k, v.f ?? v.fn, v.o ?? v.opt);
-                                else r.off(k, v);
-                                delete rch[i].__listen[key];
-                            }                        }
-                        rch[i].parentNode.replaceChild(newrEl, rch[i]);
-                    }
-                    else rEl.appendChild(newrEl);
-                }
-            }
-        }
-        return rEl;
-    }
-    //todo: cs/style as bojects instead of string need to be handled
     /**
      * Renders the given virtual element into the specified root element.
      * @method vdom
@@ -487,6 +477,7 @@ const vdom = async (rt) => {
      * @param {Object} [opt={}] - Optional parameters.
      * @param {boolean} [opt.shadow] - Whether to render into the shadow root.
      * @param {boolean} [opt.debug] - Whether to include debug information in the output.
+     * @param {boolean} [opt.force] - Render the vdom immediately.
      * @param {boolean} [opt.el] - Whether to return the rendered element.
      * @return {Object} - The rendered element and additional information.
      * @argument vEl need to be created using __o.mkEl
@@ -494,10 +485,10 @@ const vdom = async (rt) => {
     function renderVDOM(rtEl, vEl, opt = {}) {
         let el;
         let { type } = rt.utils;
+        let { shadow: s, debug: dg } = opt;
         //batchUpdate(i => {
         let a = type(rtEl, 'inst', rt) ? rtEl.gt : (type(rtEl, 'inst', HTMLElement) ? rtEl : new rt(rtEl).gt), f;
         //! needs fixing for shadow handleing
-        let s = opt?.shadow;
         let r = type(vEl, 'arr');
         //? reworks/cleanup this for vdom handleing
         f = s ? a?.shadowRoot : r ? a : a?.firstChild;
@@ -506,7 +497,7 @@ const vdom = async (rt) => {
             let mx = Math.max(ch?.length ?? 0, vEl?.length ?? 0);
             el = [];
             for (let i = 0; i < mx; i++) {
-                const n = __vd(ch[i] ?? null, vEl[i] ?? null, type(a._chd, 'arr') ? a._chd[i] : null, opt);
+                const n = __vd2(ch[i] ?? null, vEl[i] ?? null, type(a._chd, 'arr') ? a._chd[i] : null, opt);
                 if (n !== null && n != false) {
                     if (!type(ch[i], 'obj')) f.appendChild(n);
                     else if (!n.isEqualNode(ch[i])) f.replaceChild(n, ch[i]);
@@ -516,20 +507,33 @@ const vdom = async (rt) => {
             a._chd = [].concat(vEl);
         }
         else {
-            el = __vd(f, vEl, a._chd, opt);
+            el = __vd2(f, vEl, a._chd, opt);
             a._chd = {};
             Object.assign(a._chd, vEl);
             f == null && el != null ? (s ? s : a).append(el) : 0;
         }
         //});
-        if (opt.debug)
+        if (dg)
             return { el, __ovt: vEl };
         if (opt.el)
             return { el };
     }
     rt.vdom = render;
     return rt;
-};/* ================================================ */
+};
+
+/* function evts(act, el, vl) {
+    let lt = el.__listen;
+    if (act == 'add') {
+
+    }
+    else if (act == 'chg') {
+
+    }
+    else if (act == 'rm') {
+
+    } 
+}*//* ================================================ */
 /* =========== core.js [0.13.2] lib ================== */
 /* ======== function _c() || class __o ============ */
 /* ================================================ 
@@ -612,7 +616,7 @@ let __o$1=class __o {
     _(_) {
         if (this === _o) console.warn(`{ const: _o & fn: _n } is deprecated.\nPlease create a new one instead.`);
         this.el = _;
-        this.fdoc = false;
+        this.fdoc = !!0;
         this.get();
         return this;
     }
@@ -625,26 +629,19 @@ let __o$1=class __o {
   * @return {HTMLElement | Document | Window | Object | undefined} The retrieved element or undefined if not found.
   */
     get(i, d) {
-        var el = i ?? this.el;
-        let { type } = __o.utils;
-        if (type(el, "inst", HTMLElement) || type(el, "inst", Window) || type(el, "inst", Document)) return this.#El = el;
-        else if (type(el, "obj")) {
-            return this.#El = el;
-        }
-        else if (type(el, "str")) {
+        let el = i ?? this.el;
+        let { type: t } = __o.utils;
+        if (t(el, "inst", HTMLElement) || t(el, "inst", Window) || t(el, "inst", Document)) return this.#El = el;
+        else if (t(el, "obj")) { return this.#El = el; }
+        else if (t(el, "str")) {
             if (el.search(/^\w+:\/\//g) > -1 && el.search(/\w+\[*\]/g) == -1)
                 return;
-            var doc = !this.fdoc ? document : this.fdoc, qy = 'querySelector';
-            //---------------------------------------------
-            // * old: _c("#foo.class") ==> changed to _c("#foo .class")
-            // TODO: switch to qy selector or improve logic ??? [done]
-            //---------------------------------------------
-            let tEl;
-            try { tEl = doc[qy](el); } catch (e) { if (d) console.error(e); }            if (tEl)
+            let doc = !this.fdoc ? document : this.fdoc, qy = 'querySelector', tEl;
+            try { tEl = doc[qy](el); } catch (e) { if (e) console.error(e); }            if (tEl)
                 return this.#El = tEl;
         }
     }
-    /**
+    /**,
   * Selects an element based on the given query and assigns it to the `#El` property.
   *
   * @param {string} i - The query used to select the element.
@@ -717,6 +714,19 @@ let __o$1=class __o {
         }
         return x;
     }
+    qyp(s, e = document) {
+        let el = this.gt?.parentNode;
+        const rs = () => {
+            if (typeof el?.matches !== "function") return null;
+            let m = el?.matches(s);
+            return (!el || (el === e && !m)) ? null :
+                m ? el :
+                    (el = el.parentNode, rs());
+        };
+        const f = rs();
+        this.#El = f ?? null;
+        return this;
+    }
     /**
     * Clone the given node.
     *
@@ -737,8 +747,7 @@ let __o$1=class __o {
         return b ? b : this;
     }
     del(e) {
-        e === undefined ?
-            this.gt.remove() : this.gt.parentNode.removeChild(e);
+        !e ? this.gt.remove() : this.gt.parentNode.removeChild(e);
         return this;
     }
     attr(type = null, val, e) {
@@ -767,45 +776,79 @@ let __o$1=class __o {
         }
         return this;
     }
-    gat = (t) => (this.gt.getAttribute(t));
+    gat = (t) => (this.gt.attributes[t]?.value);
+    nattr(type, val, ex) {
+        let el = this.gt, ct = el?.isConnected, a = el?.attributes, fn = el[`${/^r$/.test(ex) ? 'remove' : 'set'}Attribute`].bind(el), ty = __o.utils.type,
+            prop = k => el.hasOwnProperty(k) || /^\w+[A-Z]\w+$/.test(k);
+        if (ty(type, 'unu')) return a;
+        let h = v => `inner${v == "html" ? 'HTML' : 'Text'}`, s = k => /^(html|text)$/.test(k);
+        if (ty(type, "str")) {
+            if (ex == 'r') type = [type];
+            else { const f = type; type = {}, type[f] = val; }        }
+        if (ty(type, "obj")) {
+            __o.each(type, "e", ([k, v]) => {
+                (ct && prop(k)) ? el[k] = v :
+                    s(k) ? el[h(k)] = v :
+                        k == "class" && ty(v, 'obj') ? this.class(v) :
+                            k == "style" && ty(v, 'obj') ? this.css(v) :
+                                fn(k, v);
+            });
+        }
+        if (ty(type, "arr")) {
+            if (ex == 'r') type.forEach(v => fn(v));
+            else {
+                let fl = {};
+                return type.forEach(v =>
+                    fl[v] = ct && prop(v) ? el[v] :
+                        s(v) ? el[h(v)] :
+                            (a[v]?.value ?? null)
+                ), fl;
+            }
+        }
+        return this;
+    }
     static each(a, f, z) {
-        const { utils: { type: t } } = __o,
+        const { utils: { type: t } } = __o, al = (t(a, "arr") || t(a, "set") || t(a, "wSet") || t(a, 'map') || t(a, 'wMap') || t(a, 'obj')),
             fu = (j) => {
                 var c = (t(f, "str")) ? z : f;
-                if (t(c, "fn") && t(j, 'arr'))
+                //__o.log(a, f, z, j);
+                if (t(c, "fn") && al)
                     j.forEach((v, i) => c(v, i));
             };
-        if (t(f, "fn")) fu(t(a, "arr") ? a : Array.prototype.slice.call(a));
+        if (t(f, "fn")) fu(al && !a.item ? a : Array.prototype.slice.call(a));
         else if (t(f, "str"))
             fu(Object[f + (f == 'k' ? 'eys' : f == 'v' ? 'alues' : f == 'e' ? 'ntries' : 1)](a));
         return this;
     }
     each = __o.each;
     class(type, val, ...mor) {
-        const { utils: { type: t } } = __o,
-            f = i => i.search(/add|remove|toggle/g) !== -1;
-        var a = this.gt.classList;
-        if (t(type, 'str') && f(type))
-            a[type](val, ...mor);
-        else if (t(type, 'obj'))
-            this.each(type, 'k', e => f(e) ? a[e](type[e], ...mor) : 0);
+        const { utils: { type: z } } = __o, t = type,
+            f = i => /^(add|remove|toggle)$/.test(i);
+        const a = this.gt.classList;
+        if (z(t, 'str') && f(t)) a[t](val, ...mor);
+        else if (z(t, 'obj'))
+            __o.each(t, 'e', ([k, v]) => (f(k) ? a[k](...(z(v, 'arr') ? v : [v])) : 0));
         else { return a; }
         return this;
     }
-    css(type = 0, val = null) {
-        var e = this.gt.style, t = type, i = val;
+    css(type = 0, val = null, ex) {
+        var e = this.gt.style, t = type, i = val, ty = __o.utils.type;
         if (t == 0 && i == null)
             return e;
-        else if (__o.utils.type(t, "obj"))
-            this.each(t, "k", v => e[v] = t[v]);
-        else if (__o.utils.type(t, "str") && /:/g.test(t)) {
+        else if (ty(t, "obj")) __o.each(t, "e", v => e.setProperty(...v));
+        else if (ty(t, "str") && /:/g.test(t)) {
             let o = t.split(';');
             for (let d of o) {
                 let b = d.indexOf(':'), a = d.substring(0, b).trim().replace(/-([a-z])/g, (m, l) => l.toUpperCase());
                 e[a] = d.substring(b + 1).trim();
             }
         }
-        else if (i == null) return e[t];
+        else if (ex === "r") {
+            if (ty(t, "str")) t = [t];
+            if (ty(t, "arr"))
+                t.forEach(v => e.removeProperty(v.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()));
+        }
+        else if (i === null) return e[t];
         else e[t] = i;
         return this;
     }
@@ -821,10 +864,10 @@ let __o$1=class __o {
     hide(i) {
         var d = 'display', o = "_o-show", j = (k) => (this.attr(o, k).css(d, k ? 'block' : 'none'));
         if (!i)
-            j(this.gat(o) == 'false' || undefined || null ? true : false);
+            j(this.gat(o) == 'false' || undefined || null ? 1 : 0);
         else {
-            if (i == "b") j(true);
-            else if (i == "n") j(false);
+            if (i == "b") j(1);
+            else if (i == "n") j(0);
         }
         return this;
     }
@@ -842,17 +885,14 @@ let __o$1=class __o {
         if (t !== null) this.gt.textContent = t;
         return t == null ? this.gt.textContent : this;
     }
-    on(e, f, b) {
-        //if (Array.isArray(e)) return false;
-        var a = 'addEventListener';
-        if (__o.utils.type(e, "obj"))
-            __o.each(e, 'k', v => this.gt[a](v, e[v], f));
+    on(e, f, o) { return this.#evt(1, e, f, o); }
+    off(e, f, o) { return this.#evt(0, e, f, o); }
+    #evt(d, e, f, o) {
+        const a = `${d == 1 ? 'add' : 'remove'}EventListener`, { type: t } = __o.utils, el = this.gt;
+        if (t(e, "obj"))// can be a problem but for now i have not hit it
+            __o.each(e, 'e', ([k, v]) => el[a](k, ...(t(v, "obj") ? [v.f ?? v.fn, v.o ?? v.opt] : [v, f])));
         else
-            this.gt[a](e, f, b);
-        return this;
-    }
-    off(e, f, o) {
-        this.gt.removeEventListener(e, f, o);
+            el[a](e, f, o);
         return this;
     }
     static hw = (i) => {
@@ -955,19 +995,20 @@ let __o$1=class __o {
     } */
     //!===== needs checking ============== [?? 23/9/23]
     json(t = null, o = null, l = 0) {
-        var i, q, e = 's', p = "p", z = this.el,
+        let i, q;
+        const e = 's', p = "p", z = this.el,
             f = (s, x, k) => {
                 if (s === e) return JSON.stringify(x, null, k);
                 else if (s === p) {
-                    try { i = JSON.parse(x); } catch (e) { return false; }
+                    try { i = JSON.parse(x); } catch (e) { return null; }
                     return i;
                 }
             },
             x = (k, l) => (typeof k == l),
-            y = k => (x(k, 'object')),
-            w = k => (x(k, 'string'));
-        q = (y(t)) ? f(e, t, o) :
-            (w(t)) ? ((t == p || t == e) ? f(t, o ?? z, l ?? o) : f(p, t, o)) :
+            y = k => (x(k, 'obj')),
+            w = k => (x(k, 'str'));
+        q = y(t) ? f(e, t, o) :
+            w(t) ? ((t == p || t == e) ? f(t, o ?? z, l ?? o) : f(p, t, o)) :
                 (t == null) ? ((y(z)) ? f(e, z) : (w(z)) ? f(p, z) : null) : null;
         return (q == null) ? this : q;
     }
@@ -1056,32 +1097,6 @@ let __o$1=class __o {
         window.open(this.el, a, b);
     }
     // @deprecated: remove secToHms, milliToMS, msToTime it has moved to __o.utils.Time
-    /* secToHms() {
-        var d = Number(this.el), i = 3600, j = 60, f = Math.floor,
-            m = f(d % i / j),
-            s = f(d % i % j);
-        return ((m > 0 ? m + (m == 1 ? " : " : " : ") : "") +
-            (s > 0 ? s + (s == 1 ? " " : "") : ""));
-    } */
-    // @deprecated
-    /* milliToMS(i) {
-        var s = Number(i ?? this.el ?? 0);
-        var Mi = Math.floor(s / 60);
-        Mi = (Mi >= 10) ? Mi : "0" + Mi;
-        s = Math.floor(s % 60);
-        s = (s >= 10) ? s : "0" + s;
-        return Mi + ":" + s;
-    } */
-    // @deprecated 
-    /* msToTime(s) {
-        var ms = s % 1000;
-        s = (s - ms) / 1000;
-        var secs = s % 60;
-        s = (s - secs) / 60;
-        var mins = s % 60;
-        var hrs = (s - mins) / 60;
-        return hrs + ':' + mins + ':' + secs + '.' + ms;
-    } */
     /*lite_start*/
     static reqAnima(i) {
         var requestAnimationFrame = window.requestAnimationFrame /* || window.mozRequestAnimationFrame ||
@@ -1156,6 +1171,7 @@ let __o$1=class __o {
         return this.#El;
     }
     /*lite_start*/
+    //* move to one of the media modules/plugins i dont think it has use on a normal webpages.
     getStm(el = null) {
         let fps = 0, e = this.gt,
             g = j => (e[j + 'aptureStream']),
@@ -1167,6 +1183,7 @@ let __o$1=class __o {
         else console.error('Stream capture is not supported');
         return stm;
     }
+    //* move to one of the media modules/plugins i dont think it has use on a normal webpages.
     src(st = null) {
         var g = this.gt, s = 'srcObject';
         if (st == null) return g[s];
@@ -1218,6 +1235,7 @@ let __o$1=class __o {
     } */
     // @deprecating: move to static
     //mime = __o.mime;
+    //* move to one of the media modules/plugins i dont think it has use on a normal webpages.
     stop(el) {
         var a = typeof el == 'object' ? el : _c(el).src();
         a.getTracks().forEach(trk => trk.stop());
@@ -1227,84 +1245,66 @@ let __o$1=class __o {
         const { utils: { type: t } } = __o;
         let options = { root: null, rootMargin: "0px", threshold: [0] };
         if (t(opt, 'obj'))
-            this.each(opt, 'e', (k, v) => (options[k] = t(v, 'func') ? v() : v));
+            this.each(opt, 'e', ([k, v]) => (options[k] = t(v, 'func') ? v() : v));
         let obs = new IntersectionObserver(cb, options);
-        obs.observe(el);
+        t(el, 'inst', HTMLElement) ? obs.observe(el) : 0;
         return obs;
     }
     /*lite_end*/
-    // @deprecating: move to static
-    //createObserver = __o.mkObs;
     //-------
     static mkEl = (type, props, ...c) => ({ type, props: props || {}, children: c || [] });
-    //static createElement = __o.mkEl;
-    // @deprecating move to static
-    //createElement = __o.mkEl;
     //-------
     static mknode(obj, dg) {
-        const { utils: { type: u }, log } = __o;
-        const tt = (a, b) => (a.map(v => b + v));
-        const g = ['svg', 'path', "circle", "clipPath", "defs", "desc", "ellipse", "g", "image", "use", 'symbol', 'text', 'tspan', 'foreignObject', 'line', 'marker', 'mask', 'metadata', 'pattern', 'polygon', 'polyline', 'rect'/* , 'stop', 'view' */]
-            .concat(
-                tt(["", "path"], 'hatch'),
-                tt(["", "Motion", "Transform"], "animate"),
-                tt([
+        const { utils: { type: u }, log, _pEl } = __o;
+        const tt = (a, b) => a.map(v => b + v);
+        const g = ['svg', 'path', "circle", "clipPath", "defs", "desc", "ellipse", "g",
+            "image", "use", 'symbol', 'text', 'tspan', 'foreignObject', 'line', 'marker',
+            'mask', 'metadata', 'pattern', 'polygon', 'polyline', 'rect',/* , 'stop', 'view' */
+            ...tt(['', "path"], 'hatch'),
+            ...tt(['', "Motion", "Transform"], "animate"),
+            ...tt(
+                [
                     "Blend", "ColorMatrix", "ComponentTransfer", "Composite", "ConvolveMatrix", "DiffuseLighting",
-                    "DisplacementMap", "DistantLight", "DropShadow", "Flood", "GaussianBlur",
-                    "Image", , "Morphology", "Offset", "PointLight"]
-                    .concat(
-                        tt(["A", "B", "G", "R"], 'Func'),
-                        tt(["", "Node"], "Merge")
-                    ),
-                    'fe')
-            );
+                    "DisplacementMap", "DistantLight", "DropShadow", "Flood", "GaussianBlur", "Image", "Morphology", "Offset", "PointLight",
+                    ...tt(["A", "B", "G", "R"], 'Func'), ...tt(['', "Node"], "Merge")
+                ], 'fe')
+        ];
         const r = 'Element';
         const dd = (p = '', ...k) => document[`create${p}`](...k);
-
-        if (dg)
-            log('__o.mknode', g);
         function mk(nn) {
             if (u(nn, 'unu')) return null;
             if (u(nn, 'str') || u(nn, 'num')) return dd('TextNode', nn);
             if (dg) log('__o.mknode_svg', nn.type, g.indexOf(nn.type));
-            const { t, c, i } = parse(nn.type);
-            if (dg) log('__o.mknode_p: ', 'el:', t, 'c:', c, 'i:', i);
-            const e = g.indexOf(t) > -1 ?
-                dd(r + 'NS', "http://www.w3.org/2000/svg", t) :
-                dd(r, t),
-                z = _c(e);
-            if (t === 'textarea') {
-                z.val(nn.props.value);
-                nn.props.value = null;
-            }
-            if (i) nn.props.id = i;
-            if (c) nn.props.class = c;
-            [setProps, on].forEach(v => v(nn.props, z));
+            const tg = _pEl(nn), { t, c, i } = tg;
+            if (dg)
+                log('__o.mknode_p: ', 'el:', t, 'c:', c, 'i:', i);
+            const e = dd(...g.indexOf(t) > -1 ? [r + 'NS', "http://www.w3.org/2000/svg"] : [r], tg.t);
+            setProps(nn.props, e, tg);
             if (nn.children)
-                nn.children.map(mk).forEach(v => v ? e.appendChild(v) : 0);
+                e.append(...nn.children.map(mk).filter(v => !!v));
             return e;
         }
-        let parse = __o._pEl;
-        let on = (props, z) => {
-            if (!z.gt.__listen) z.gt.__listen = {};
-            __o.each(props, "k", n => {
-                if (isEvt(n)) {
-                    if (dg) log('__o.on', n, props[n]);
-                    const a = z.gt.__listen[n] = props[n];
-                    z.on(n.slice(2).toLowerCase(), ...(u(a, 'obj') ? [a.f ?? a.fn, a.o ?? a.opt] : [a]));
-                }            });
-        };
-        let isEvt = (n) => /^on/.test(n);
-        //let isCustom = (n) => (isEvt(n)/*  || n === 'forceUpdate' */);
-        let setProps = (pro, y) => {
-            let a = Object.fromEntries(Object.entries(pro).filter(([k]) => !isEvt(k)));
-            y.attr(a);
-        };
+        const skip = (n) => (/^(forceUpdate|children|id|class(Name|))$/.test(n));
+        function setProps(props, e, tg) {
+            let attr = {}, sp = {}, evts = {}, c = _c(e);
+            if (!e.__listen) e.__listen = {};
+            ['id', 'class'].forEach(v => tg[v[0]] ? sp[v] = tg[v[0]] : 0);
+            for (const [k, v] of Object.entries(props)) {
+                if (/^on/.test(k))
+                    evts[k.slice(2).toLowerCase()] = e.__listen[k] = v;
+                else if (tg.t == 'textarea' && k == 'value')
+                    c.val(v);
+                else if (skip(k)) continue;
+                else attr[k] = v;
+            }
+            c.nattr(sp).nattr(attr).on(evts);
+            return e;
+        }
         return mk(obj);
     }
     static _pEl(str) {
         // Match the tag, id, classes, and ignore attribute selectors
-        const { utils: { type }/* , log */ } = __o;
+        const { utils: { type }, log } = __o;
         let t, c, i, o;
         //log(str);
         const m = ((type(str, 'obj')) ? str.type : str)?.match(/([.#]?[\w-]+)(?![^\[]*\])/g);
@@ -1315,32 +1315,33 @@ let __o$1=class __o {
                         t = h;
             }
             if (type(str, 'obj') && str.props) {
-                c = c && str.props.class ? `${c} ${o.class}` : c;
-                c = c && str.props.className ? `${c} ${o.className}` : c;
+                o = str.props.class ? str.props.class : o;
+                o = str.props.className ? `${o ? o + ' ' : ''}${str.props.className}` : o;
+                c = c ? `${c}${o ? ' ' + o : ''}` : o;
+                i = i ?? str.props.id;
             }
             return { t: t || 'div', c, i };
         }
     }
-    // @deprecating: move to static
-    //mknode = __o.mknode;
     //-------
-    // @deprecating: move to __o.utils.math.per[to||from](total, avail, cur) (util.js)
-    //static toPer = (total, avail, cur) => (cur / (total - avail) * 100);
-    //static fromPer = (total, avail, per) => ((per / 100) * (total - avail));
-    // @deprecating: move to __o.utils.math(util.js)
-    //toPer = __o.toPer;
-    //fromPer = __o.toPer;
-    //-------
-    static cssvar(attr = null, val = null) {
+    static cssvar(attr = null, val = null, els = ":root") {
         if (!attr) return;
-        let el = _c(':root').gt.style, p = 'etProperty', f, o = __o.utils.type(attr, 'obj');
+        const { utils: { type: u } } = __o;
+        const el = (els?.gt ?? _c(els).gt).style, p = 'etProperty', o = u(attr, 'obj'), a = u(attr, 'arr');
+        let f;
         if (o)
             __o.each(attr, 'k', (v, i) => el[`s${p}`](`--${v}`, attr[v]));
+        else if (a)
+            f = {},
+                __o.each(attr, (v, i) => f[v] = el[`g${p}Value`](`--${v}`));
         else
             f = el[(!val) ? `g${p}Value` : `s${p}`](`--${attr}`, val);
-        return (o || val != null) ? this : f;
+        return f ?? this;
     }
-    //cssvar = __o.cssvar;
+    cssvar(attr = null, val = null) {
+        const f = __o.cssvar(attr, val, this);
+        return (f == __o) ? this : f;
+    };
     static log = console.log.bind(console);
     constructor(_) { if (_ != null || undefined) this._(_); };
 };

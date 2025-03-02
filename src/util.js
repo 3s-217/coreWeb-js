@@ -7,7 +7,7 @@
  * @description Core utilities
  * @license MIT
  * @author 3s217
- * @version 0.13.0
+ * @version 0.13.3
  */
 export default async (rt) => {
     if (!rt) throw new Error('util requires extens {./core.js}');
@@ -227,23 +227,24 @@ export default async (rt) => {
                         j(i) ? h(v, i) :
                             j('-') ? v < 0 : j('+') ? v > 0 :
                                 j('array') || j('arr') ? c() :
-                                    j('null') ? v === l :
-                                        j('unu') ? v === l || v === d :
-                                            j('emp') ? v === l || v === d || v === '' :
-                                                j('bool') ? h(b) :
-                                                    j('str') || j(s) ? h(s) :
-                                                        j("func") || j("fn") || j(f) ? h(f) :
-                                                            j('obj') || j(o) ? (h(o) && !c() && v !== l) :
-                                                                j('set') ? z(Set) :
-                                                                    j('map') ? z(Map) :
-                                                                        j('wSet') ? z(WeakSet) :
-                                                                            j('wMap') ? z(WeakMap) :
-                                                                                j('inst') ? z(u) :
-                                                                                    j('sym') || j(sym) ? h(sym) :
-                                                                                        j('date') ? z(Date) :
-                                                                                            j('regexp') || j('rx') ? z(RegExp) :
-                                                                                                j('promise') || j("prm") ? z(Promise) :
-                                                                                                    j('error') || j('err') ? z(Error) : d;
+                                    j('null') || j('nl') ? v === l :
+                                        j('ud') ? v === d :
+                                            j('unu') ? v === l || v === d :
+                                                j('emp') ? v === l || v === d || v === '' :
+                                                    j('bool') ? h(b) :
+                                                        j('str') || j(s) ? h(s) :
+                                                            j("func") || j("fn") || j(f) ? h(f) :
+                                                                j('obj') || j(o) ? (h(o) && !c() && v !== l) :
+                                                                    j('set') ? z(Set) :
+                                                                        j('map') ? z(Map) :
+                                                                            j('wSet') ? z(WeakSet) :
+                                                                                j('wMap') ? z(WeakMap) :
+                                                                                    j('inst') ? z(u) :
+                                                                                        j('sym') || j(sym) ? h(sym) :
+                                                                                            j('date') ? z(Date) :
+                                                                                                j('regexp') || j('rx') ? z(RegExp) :
+                                                                                                    j('promise') || j("prm") ? z(Promise) :
+                                                                                                        j('error') || j('err') ? z(Error) : d;
         }
         //toPer: (total, avail, cur) => (cur / (total - avail) * 100),
         //fromPer: (total, avail, per) => ((per / 100) * (total - avail)),

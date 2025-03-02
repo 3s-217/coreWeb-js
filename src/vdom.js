@@ -3,273 +3,220 @@
  */
 export default async (rt) => {
     if (!rt) throw new Error('vdom requires __o {mknode,mkEl,utils} {./core.js}');
-    const { mknode, log, _pEl: parse, utils } = rt;
+    const { mknode, log, _pEl: parse, utils, each } = rt;
+    const len = (v) => (v?.length ?? v?.size);
+    const Okl = (v) => len(Object.keys(v)) == 0;
+    const tcss = (i, m) => i.split(';').forEach(c => {
+        const [x, y] = c.split(':').map((s, i) => (!i ? s.replace(/-([a-z])/g, (m, l) => l.toUpperCase()) : s).trim());
+        if (x && y) m.set(x, y);
+    });
+    //** start new 
+    const _e = k => k.slice(2).toLowerCase();
+    const rlt = rEl => (rEl?.__listen && !Okl(rEl?.__listen ?? {})) ? new rt(rEl).off(Object.fromEntries(Object.entries(rEl.__listen).map(([k, v]) => [_e(k), v]))) : 0;
+    function __vd2(rEl, vEl, ovEl, opt = {}) {
+        const { type: ty } = utils;
+        const { dbg } = opt;
+        let res;
+        //====================================
+        if (dbg && ty(vEl, "obj") && vEl.type)
+            log('__vd_p', rEl, vEl.type, 'parse', parse(vEl));
+        if (!rEl && ty(vEl, 'obj')) return mknode(vEl, dbg);
+        if (!rEl && (ty(vEl, 'str') || ty(vEl, 'num'))) return new Text(vEl);
+        //====================================
+        try { res = comp2(rEl, vEl, ovEl, opt); }
+        catch (e) { log(e, rEl, vEl, ovEl, opt); return null; }
+        let f = k => k.slice(2).toLowerCase();
+        if (ty(res, "obj")) {
+            if (dbg)
+                log('__vd-res', res);
+            /* 
+            ? shortname all res keys 
+            *- rm,tag,text
+            *- listener only
+            */
+            if (res.rm || res.tag) {
+                if (rEl) {
+                    rlt(rEl);
+                    let n;
+                    res.tag ? (rEl.parentNode.replaceChild(n = mknode(vEl, dbg), rEl), rEl = n) : rEl.remove();
+                }
+                return null;
+            }
+            //! problem with text handling ?
+            //if (res.txt) return rEl ? (rEl.textContent = vEl, 0) : 0;
+        }
+        //====================================
+        //* children logic
+        //====================================
+        if (vEl.props?.html) return null;
+        const rch = Array.from(rEl.childNodes ?? []);
+        const vch = vEl.children;
+        const och = ovEl ? ovEl?.children : [];
+        const clen = Math.max(len(rch), len(vch));
+        for (let i = 0; i < clen; i++) {
+            //log('__vd_ch_' + i, rch[i], vch[i]);
+            const nEl = __vd2(rch[i] ?? null, vch[i] ?? null, och[i] ?? null, opt);
+            //log(nEl, rch[i], nEl === rch[i]);
+            if (nEl) {
+                if (!rch[i]) { rEl.append(nEl); }
+                else if (!rch[i].isEqualNode(nEl)) {
+                    //log('new-el-replace', rEl, nEl, i, rch[i], vch[i], och[i]);
+                    rlt(rch[i]);
+                    rch[i].parentNode.replaceChild(nEl, rch[i]);
+                }
+            }
+        }
+        return rEl;
+    };
 
-    let updateQueue = [];
+    function comp2(rEl, vEl, ovEl, opt = {}) {
+        const { type: ty } = utils;
+        const { root, force, dbg } = opt;
+        if (ty(vEl, 'unu')) return { rm: !!1 };
+        const rl = ty(rEl, 'inst', HTMLElement) ? 1 : ty(rEl, 'inst', Text) ? 2 : 0;
+        //=================================================================================
+        if ((ty(vEl, 'str') || ty(vEl, 'num'))) return (rl == 2 ? rEl.textContent !== vEl : ovEl !== vEl) ? rEl.textContent = vEl : 0;
+        // todo: auto switch real and virtual element ?
+        const [pvel, ovel] = [vEl, ovEl].map(v => ty(v, 'obj') ? parse(v) : 0);
+        if (dbg)
+            log('comp', rEl, vEl, ovEl, pvel, ovel);
+        //=================================================================================
+        if (ty(vEl, 'obj') && (rEl && rEl?.tagName?.toLowerCase() !== pvel.t)) return { tag: !!1 };
+        //! todo:  need better debugging
+        //=================================================================================
+        /*
+        ? shortname all res keys
+        * force update 
+        - attributes <-> props
+        - listeners  <-> props
+        ? or
+        * non force update
+        - vdom <-> vdom
+        */
+        //? list of res keys
+        //* res={ txt, rm, tag};
+        const r = new rt(rEl);
+        if (!rEl.__listen) rEl.__listen = {};
+        const ltn = rEl.__listen;
+        const attr = rEl.attributes;
+
+        //data-|aria-|
+        const pt = /^([a-z]+(?:[A-Z][a-z]+)+|value|checked|disabled|readonly|style)$/;
+        //===================================
+        const [fevts, fattr, fprop, fcss, ecss] = Array(5).fill().map(v=>new Map());
+        tcss(rEl.style.cssText, ecss);
+        //====================================
+        each(vEl.props, 'e', ([k, v]) => {
+            if (k === 'style') v ? ((ty(v, 'str')) ? tcss(v, fcss) : each(v, 'e', x => fcss.set(...x))) : 0;
+            else if (/^(class(Name)?|id|text)$/g.test(k)) { }
+            else if (/^html$/g.test(k)) (v != rEl.innerHtml) ? r.nattr('html', v) : 0;
+            else
+                (k.startsWith('on') ? fevts : /viewBox/.test(k) ? fattr : pt.test(k) ? fprop : fattr).set(k, v);
+        });
+        if (pvel.i) fattr.set('id', pvel.i);
+        //==
+        if (dbg)
+            log('comp_p', pvel, ovel),
+                log('fevts', fevts, 'fprop', fprop, 'fattr', fattr, 'fcss', fcss, 'ecss', ecss),
+                log('comp_el', r.gt.outerHTML);
+        //===============================
+        //* attr
+        // 
+        if (len(fattr) || len(attr)) {
+            let [add, rm] = [{}, []];
+            for (let [k, v] of fattr)
+                if (attr[k]?.value !== v)
+                    add[k] = v;
+            for (let atn of attr)
+                if (!/^class$/.test(atn.name) && !pt.test(atn.name) && !fattr.has(atn.name))
+                    rm.push(atn.name);
+            !Okl(add) ? r.nattr(add) : 0;
+            len(rm) > 0 ? r.nattr(rm, 0, 'r') : 0;
+        }
+        //===============================
+        //* class
+        const rcls = new Set(r.class());
+        const ncls = new Set(pvel.c ? pvel.c.split(/\s+/) : []);
+        if (len(rcls) || len(ncls)) {
+            let add = {};
+            //log('comp_cls', r.gt.outerHTML, r.class().toString(), rcls, ncls);
+            let cl = (n, i, j) => [n, [...i].filter(c => !j.has(c))];
+            [['add', ncls, rcls], ['remove', rcls, ncls]].map(v => cl(...v))
+                .forEach(([k, v]) => v.length ? (add[k] = v) : 0);
+            if (!Okl(add))
+                r.class(add);
+            // log('comp_cls:end', add, r.gt.outerHTML);
+        }
+        //===============================
+        //* style
+        if (len(fcss) || len(ecss)) {
+            let [add, rm] = [{}, []];
+            for (let [k, v] of fcss)
+                if (!ecss.has(k) || (ecss.has(k) && ecss.get(k) !== v))
+                    add[k] = v;
+            for (let [k, v] of ecss) if (!fcss.has(k)) rm.push(k);
+            if (len(rm)) r.css(rm, 0, 'r');
+            if (!Okl(add)) r.css(add);
+        }
+        //===============================
+        //* html js api
+        for (let [k, v] of fprop) rEl[k] !== v ? rEl[k] = v : 0;
+        //===============================
+        //* event listeners
+        if (len(fevts) || !Okl(ltn)) {
+            let [add, rm, chg] = Array(3).fill(Set);
+            for (let [k, v] of fevts)
+                if (!ltn[k]) add.add(k);
+                else if (ltn[k] && ltn[k]?.toString() !== v?.toString()) chg.add(k);
+            for (let k of Object.keys(ltn)) !fevts.has(k) ? rm.add(k) : 0;
+            let f = _e;
+            if (dbg)
+                log('ltn', rEl, { add, rm, chg });
+            if (len(add)) {
+                let ev = {};
+                each(add, k => ev[f(k)] = (rEl.__listen[k] = vEl.props[k]));
+                r.on(ev);
+            }
+            if (len(rm)) {
+                let rv = {};
+                each(rm, k => rv[f(k)] = ltn[k]);
+                r.off(rv);
+                each(rm, k => delete rEl.__listen[k]);
+            }
+            if (len(chg)) {
+                let rv = {}, ev = {};
+                each(chg, k => (rv[f(k)] = ltn[k]));
+                r.off(rv);
+                each(chg, k => ev[f(k)] = (rEl.__listen[k] = vEl.props[k]));
+                r.on(ev);
+            }
+            //fnl.ltn = { add, rm, chg };
+        }
+        //* end ------------>
+    }
+    //** end new 
+    const Q = [];
     let isRendering = false;
 
-    function enqueueUpdate(rtEl, vEl, opt = {}) {
-        updateQueue.push({ rtEl, vEl, opt });
+    function qUpdate(rtEl, vEl, opt = {}) {
+        Q.push({ rtEl, vEl, opt });
         if (!isRendering) {
             isRendering = true;
-            __o.reqAnima(processQueue);
+            rt.reqAnima(processQ);
         }
     }
 
-    function processQueue() {
-        while (updateQueue.length > 0) {
-            const { rtEl, vEl, opt } = updateQueue.shift();
+    function processQ() {
+        while (Q.length > 0) {
+            const { rtEl, vEl, opt } = Q.shift();
             renderVDOM(rtEl, vEl, opt);
         }
         isRendering = false;
     }
     // User-facing render function
     function render(rtEl, vEl, opt = {}) {
-        (opt.force ? renderVDOM : enqueueUpdate)(rtEl, vEl, opt);
+        (opt.force ? renderVDOM : qUpdate)(rtEl, vEl, opt);
     }
-
-
-    function compV(ovEl, nvEl, evts) {
-        if (nvEl === undefined || nvEl === null) return { remove: true };
-        if (typeof nvEl === 'string') return ovEl === nvEl;
-        const povEl = parse(ovEl);
-        const pnvEl = parse(nvEl);
-        if (povEl.t !== pnvEl.t) return { tagName: true };
-        let added = {};
-        let removed = {};
-        let changed = {};
-        let listen = {};
-        const t = v => (Object.keys(v).length > 0);
-        const r = v => (Object.entries(v));
-        //? need to add class and id tests
-        for (const [key, value] of r(ovEl.props ?? {})) {
-            if (key.startsWith('on')) {
-                if (nvEl.props[key] && value && nvEl.props[key]?.toString() !== value?.toString())
-                    listen[key] = value;
-                else if (!pnvEl.props[key] && value) listen[key] = null;
-                continue;
-            }
-            let k = nvEl.props[key];
-            if ((k == undefined) && value) removed[key] = null;
-            else if (k != undefined && k != value && value != undefined) changed[key] = value;
-        }
-        for (const [key, value] of r(pnvEl.props ?? {})) {
-            if (key.startsWith('on')) {
-                if ((!povEl.props[key] || povEl.props.toString() !== value?.toString()) && value)
-                    listen[key] = value;
-                continue;
-            }
-            let k = povEl.props[key];
-            if (k == undefined && value != undefined) added[key] = value;
-            else if (k !== value) changed[key] = value;
-        }
-        if (t(removed) || t(changed) || t(added) || t(listen)) {
-            return { added, removed, changed, listen };
-        }
-        return null;
-    }
-    function comp(rEl, vEl, opt = {}) {
-        if (vEl === undefined || vEl === null) return removeEventListeners(rEl), { remove: true };
-        if (typeof vEl === 'string') return rEl.nodeType === Node.TEXT_NODE && rEl.textContent === vEl;
-        const pvel = parse(vEl);
-        if (rEl?.tagName?.toLowerCase() !== pvel.t) return { tagName: true };
-        const c = new rt(rEl);
-        const t = v => (Object.keys(v).length > 0);
-        const r = i => (Object.entries(i));
-        const at = Array.from(rEl?.attributes || []);
-        const lt = rEl?.__listen ?? {};
-        const vp = vEl.props ?? {};
-        const added = {};
-        const removed = {};
-        const changed = {};
-        const listen = {};
-        // todo: add force update?
-        for (const [key, value] of r(vp)) {
-            if (key.startsWith('on')) {
-                if (opt.debug)
-                    log('listen', lt, value, utils.type(lt[key], 'emp'), lt[key]?.toString() !== value?.toString());
-                if (lt[key] && lt[key]?.toString() !== value?.toString())
-                    listen[key] = value;
-                else if (utils.type(lt[key], 'emp')) listen[key] = value, opt.dbg ? log("lt", lt, key, value) : 0;
-                continue;
-            }
-            let k = key === "html" ? c.attr("html") : (key === "class") ? pvel.c : key == "id" ? pvel.i : c.gat(key);
-            if ((k == undefined || k == "") && value) added[key] = value;
-            else if (k != value) changed[key] = value;
-        }
-        for (const [key] of r(lt)) (!vp[key]) ? listen[key] = null : 0;
-        for (const { name: nm, value: v } of at) {
-            //__o.log(nm, /^(class|id)$/.test(nm), utils.type(pvel[nm[0]], 'unu'), v, pvel[nm[0]], v === pvel[nm[0]]);
-            if (/^(class|id)$/.test(nm)) (utils.type(pvel[nm[0]], 'unu') || pvel[nm[0]] != v) ?
-                changed[nm] = pvel[nm[0]] : 0;
-            else if (!(nm in vp)) removed[nm] = null, (opt.dbg) ? __o.log('comp-d', nm) : 0;
-        }
-        //*! might be a problem => typeof vp.html == 'undefined' hope fully vEl.children.length < 1 controls it
-        if (rEl?.innerHTML?.length > 0 && typeof vp.html == 'undefined' && vEl.children.length < 1) removed.html = null;
-        if (t(changed) || t(removed) || t(added) || t(listen)) {
-            //console.log('comp-up', t(changed), t(removed), t(added) ? added : 0, t(listen));
-            return { added, removed, changed, listen };
-        }
-        return null;
-    }
-    function removeEventListeners(node) {
-        const clone = node.cloneNode(true);
-        node.parentNode.replaceChild(clone, node);
-    }
-    function __vd(rEl, vEl, ovEl, opt = {}) {
-        if (rt.utils.type(vEl, "obj") && vEl.type) {
-            const ne = parse(vEl?.type);
-            opt.dbg ? log(rEl) : 0;
-            opt.dbg ? log('__vd_p', vEl.type, 'parse', ne) : 0;
-        }
-        let { root, force } = opt;
-        let res;
-        if (vEl === undefined || vEl === null) {
-            if (rEl && rEl.parentNode) {
-                rEl.parentNode.removeChild(rEl);
-            }
-            return null;
-        }
-        if (!rEl && typeof vEl !== 'string') {
-            res = mknode(vEl, opt.dbg ?? opt.debug);
-            if (!(root ?? res).__listen)
-                (root ?? res).__listen = {};
-            return res;
-        }
-        if (typeof vEl === 'string') {
-            let t = 'textContent';
-            if (rEl.nodeType === Node.TEXT_NODE) {
-                if (rEl[t] !== vEl) rEl[t] = vEl;
-            }
-            else {
-                rEl[t] = '';
-                rEl.appendChild(document.createTextNode(vEl));
-            }
-            return null;
-        }
-        try {
-            //if ((vEl && vEl.props?.forceUpdate) || force) {
-            //console.log("real-vdom");
-            res = comp(rEl, vEl, opt);
-            //console.timeEnd("real-vdom");
-            //}
-            //else {
-            //console.time("both-vdom");
-            //    res = compV(ovEl ?? {}, vEl, rEl.__listen, opt);
-            //console.timeEnd("both-vdom");
-            //}
-        } catch (error) {
-            log(error);
-            //console.timeEnd("both-vdom");
-            //console.timeEnd("real-vdom");
-        }
-        //}
-        if (rEl && !rEl.__listen) rEl.__listen = {};
-        const y = v => (Object.keys(v)),
-            t = v => (y(v).length > 0),
-            tt = (v) => v && t(v);
-        //======
-        if (__o.utils.type(res, 'obj')) {
-            if (opt.debug)
-                log('vdom', rEl, vEl, res);
-            if (res.remove) {
-                return rEl.remove(), false;
-            }
-            if (res.tagName) {
-                if (rEl) {
-                    rEl.parentNode.replaceChild(mknode(vEl, opt.dbg ?? opt.debug), rEl);
-                }
-                return false;
-            }
-            let r = new rt(rEl);
-            if (tt(res.added)) {
-                if (!res?.added?.forceUpdate) {
-                    r.attr(res.added);
-                }
-            }
-            if (tt(res.removed)) {
-                for (const key of y(res.removed)) {
-                    if (opt.debug) log('removed', key, res.removed[key]);
-                    if (!/force(U|u)padate/i.test(key))
-                        r.attr(key, 0, 'r');
-                }
-            }
-            if (tt(res.changed)) {
-                if (opt.debug) log('changed', res.changed);
-                for (const key of y(res.changed)) {
-                    if (force || !utils.type(res.changed[key], "unu") || /force(U|u)padate/i.test(key)) {
-                        if (opt.debug) log('changed', key);
-                        if (rEl instanceof HTMLInputElement && key === 'value') {
-                            if (rEl.value !== vEl.props.value) {
-                                rEl.value = vEl.props.value;
-                            }
-                        } else if (/force(U|u)padate/i.test(key)) { }
-                        else {
-                            r.attr(key, res.changed[key]);
-                        }
-                    }
-                    //__o.log(rEl);
-                }
-            }
-            if (opt.debug && tt(res.listen))
-                log(vEl, res.listen);
-            if (tt(res.listen)) {
-                if (opt.debug && rEl.__listen) log(Object.entries(rEl.__listen));
-                for (const key of y(rEl.__listen)) {
-                    if (!key || !key.startsWith('on')) continue;
-                    let v = rEl.__listen[key];
-                    if (res.listen[key] == null || v?.toString() !== vEl?.props[key]?.toString()) {
-                        if (opt.debug) log('off', rEl, key, res.listen[key]);
-                        var k = key.slice(2);
-                        if (__o.utils.type(v, 'obj'))
-                            r.off(k, v.f ?? v.fn, v.o ?? v.opt);
-                        else r.off(k, v);
-                        delete rEl.__listen[key];
-                    };
-                }
-                for (const key of y(vEl.props)) {
-                    if (!key || !key.startsWith('on')) continue;
-                    let v = rEl.__listen[key] = vEl.props[key], k = key.slice(2);;
-                    if (__o.utils.type(v, 'obj'))
-                        r.on(k, v.f ?? v.fn, v.o ?? v.opt);
-                    else r.on(k, v);
-                }
-            }
-        }
-        //rt.log(vEl.props);
-        if (vEl.props?.html) return null;
-        const rch = Array.from(rEl.childNodes ?? []);
-        const vch = vEl.children;
-        const och = ovEl ? ovEl?.children : [];
-        const length = Math.max(rch.length, vch?.length);
-        for (let i = 0; i < length; i++) {
-            if (opt.dbg) __o.log("rendering", i, rch[i], vch[i], och[i]);
-            if (vch[i] == "") continue;
-            let newrEl = __vd(rch[i] ?? null, vch[i] ?? null, och[i] ?? null, opt);
-            if (newrEl) {
-                if (rch[i] !== newrEl) {
-                    if (rch[i]) {
-                        if (opt.debug) log(rch[i].__listen);
-                        for (const key of y(rch[i].__listen)) {
-                            if (!key || !key.startsWith('on')) continue;
-                            let v = rch[i].__listen[key];
-                            if (v?.toString() !== vEl?.props[key]?.toString()) {
-                                var k = key.slice(2);
-                                if (rt.utils.type(v, 'obj'))
-                                    r.off(k, v.f ?? v.fn, v.o ?? v.opt);
-                                else r.off(k, v);
-                                delete rch[i].__listen[key];
-                            };
-                        }
-                        rch[i].parentNode.replaceChild(newrEl, rch[i]);
-                    }
-                    else rEl.appendChild(newrEl);
-                }
-            }
-        }
-        return rEl;
-    }
-    //todo: cs/style as bojects instead of string need to be handled
     /**
      * Renders the given virtual element into the specified root element.
      * @method vdom
@@ -279,6 +226,7 @@ export default async (rt) => {
      * @param {Object} [opt={}] - Optional parameters.
      * @param {boolean} [opt.shadow] - Whether to render into the shadow root.
      * @param {boolean} [opt.debug] - Whether to include debug information in the output.
+     * @param {boolean} [opt.force] - Render the vdom immediately.
      * @param {boolean} [opt.el] - Whether to return the rendered element.
      * @return {Object} - The rendered element and additional information.
      * @argument vEl need to be created using __o.mkEl
@@ -286,10 +234,10 @@ export default async (rt) => {
     function renderVDOM(rtEl, vEl, opt = {}) {
         let el;
         let { type } = rt.utils;
+        let { shadow: s, debug: dg } = opt;
         //batchUpdate(i => {
         let a = type(rtEl, 'inst', rt) ? rtEl.gt : (type(rtEl, 'inst', HTMLElement) ? rtEl : new rt(rtEl).gt), f;
         //! needs fixing for shadow handleing
-        let s = opt?.shadow;
         let r = type(vEl, 'arr');
         //? reworks/cleanup this for vdom handleing
         f = s ? a?.shadowRoot : r ? a : a?.firstChild;
@@ -298,7 +246,7 @@ export default async (rt) => {
             let mx = Math.max(ch?.length ?? 0, vEl?.length ?? 0);
             el = [];
             for (let i = 0; i < mx; i++) {
-                const n = __vd(ch[i] ?? null, vEl[i] ?? null, type(a._chd, 'arr') ? a._chd[i] : null, opt);
+                const n = __vd2(ch[i] ?? null, vEl[i] ?? null, type(a._chd, 'arr') ? a._chd[i] : null, opt);
                 if (n !== null && n != false) {
                     if (!type(ch[i], 'obj')) f.appendChild(n);
                     else if (!n.isEqualNode(ch[i])) f.replaceChild(n, ch[i]);
@@ -308,13 +256,13 @@ export default async (rt) => {
             a._chd = [].concat(vEl);
         }
         else {
-            el = __vd(f, vEl, a._chd, opt);
+            el = __vd2(f, vEl, a._chd, opt);
             a._chd = {};
             Object.assign(a._chd, vEl);
             f == null && el != null ? (s ? s : a).append(el) : 0;
         }
         //});
-        if (opt.debug)
+        if (dg)
             return { el, __ovt: vEl };
         if (opt.el)
             return { el };
@@ -322,3 +270,16 @@ export default async (rt) => {
     rt.vdom = render;
     return rt;
 };
+
+/* function evts(act, el, vl) {
+    let lt = el.__listen;
+    if (act == 'add') {
+
+    }
+    else if (act == 'chg') {
+
+    }
+    else if (act == 'rm') {
+
+    } 
+}*/

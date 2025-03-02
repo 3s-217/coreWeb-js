@@ -96,6 +96,12 @@ const JS = {
     clean: [...parts("wa")],
     wat: { ser: ['ws'] }
   },
+  st: {
+    typ: "rp-l",
+    files: [_js("state")],
+    clean: [...parts("state")],
+    wat: { ser: ['state'] }
+  },
   sme: {},
   rme: {},
   pr: {},

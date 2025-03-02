@@ -7,7 +7,7 @@
  * @description Core utilities
  * @license MIT
  * @author 3s217
- * @version 0.13.0
+ * @version 0.13.3
  */
 const utils = async (rt) => {
     if (!rt) throw new Error('util requires extens {./core.js}');
@@ -227,23 +227,24 @@ const utils = async (rt) => {
                         j(i) ? h(v) :
                             j('-') ? v < 0 : j('+') ? v > 0 :
                                 j('array') || j('arr') ? c() :
-                                    j('null') ? v === l :
-                                        j('unu') ? v === l || v === d :
-                                            j('emp') ? v === l || v === d || v === '' :
-                                                j('bool') ? h(b) :
-                                                    j('str') || j(s) ? h(s) :
-                                                        j("func") || j("fn") || j(f) ? h(f) :
-                                                            j('obj') || j(o) ? (h(o) && !c() && v !== l) :
-                                                                j('set') ? z(Set) :
-                                                                    j('map') ? z(Map) :
-                                                                        j('wSet') ? z(WeakSet) :
-                                                                            j('wMap') ? z(WeakMap) :
-                                                                                j('inst') ? z(u) :
-                                                                                    j('sym') || j(sym) ? h(sym) :
-                                                                                        j('date') ? z(Date) :
-                                                                                            j('regexp') || j('rx') ? z(RegExp) :
-                                                                                                j('promise') || j("prm") ? z(Promise) :
-                                                                                                    j('error') || j('err') ? z(Error) : d;
+                                    j('null') || j('nl') ? v === l :
+                                        j('ud') ? v === d :
+                                            j('unu') ? v === l || v === d :
+                                                j('emp') ? v === l || v === d || v === '' :
+                                                    j('bool') ? h(b) :
+                                                        j('str') || j(s) ? h(s) :
+                                                            j("func") || j("fn") || j(f) ? h(f) :
+                                                                j('obj') || j(o) ? (h(o) && !c() && v !== l) :
+                                                                    j('set') ? z(Set) :
+                                                                        j('map') ? z(Map) :
+                                                                            j('wSet') ? z(WeakSet) :
+                                                                                j('wMap') ? z(WeakMap) :
+                                                                                    j('inst') ? z(u) :
+                                                                                        j('sym') || j(sym) ? h(sym) :
+                                                                                            j('date') ? z(Date) :
+                                                                                                j('regexp') || j('rx') ? z(RegExp) :
+                                                                                                    j('promise') || j("prm") ? z(Promise) :
+                                                                                                        j('error') || j('err') ? z(Error) : d;
         }
         //toPer: (total, avail, cur) => (cur / (total - avail) * 100),
         //fromPer: (total, avail, per) => ((per / 100) * (total - avail)),
@@ -333,7 +334,7 @@ let __o$1=class __o {
     _(_) {
         if (this === _o) console.warn(`{ const: _o & fn: _n } is deprecated.\nPlease create a new one instead.`);
         this.el = _;
-        this.fdoc = false;
+        this.fdoc = !!0;
         this.get();
         return this;
     }
@@ -346,26 +347,19 @@ let __o$1=class __o {
   * @return {HTMLElement | Document | Window | Object | undefined} The retrieved element or undefined if not found.
   */
     get(i, d) {
-        var el = i ?? this.el;
-        let { type } = __o.utils;
-        if (type(el, "inst", HTMLElement) || type(el, "inst", Window) || type(el, "inst", Document)) return this.#El = el;
-        else if (type(el, "obj")) {
-            return this.#El = el;
-        }
-        else if (type(el, "str")) {
+        let el = i ?? this.el;
+        let { type: t } = __o.utils;
+        if (t(el, "inst", HTMLElement) || t(el, "inst", Window) || t(el, "inst", Document)) return this.#El = el;
+        else if (t(el, "obj")) { return this.#El = el; }
+        else if (t(el, "str")) {
             if (el.search(/^\w+:\/\//g) > -1 && el.search(/\w+\[*\]/g) == -1)
                 return;
-            var doc = !this.fdoc ? document : this.fdoc, qy = 'querySelector';
-            //---------------------------------------------
-            // * old: _c("#foo.class") ==> changed to _c("#foo .class")
-            // TODO: switch to qy selector or improve logic ??? [done]
-            //---------------------------------------------
-            let tEl;
-            try { tEl = doc[qy](el); } catch (e) { if (d) console.error(e); }            if (tEl)
+            let doc = !this.fdoc ? document : this.fdoc, qy = 'querySelector', tEl;
+            try { tEl = doc[qy](el); } catch (e) { if (e) console.error(e); }            if (tEl)
                 return this.#El = tEl;
         }
     }
-    /**
+    /**,
   * Selects an element based on the given query and assigns it to the `#El` property.
   *
   * @param {string} i - The query used to select the element.
@@ -425,6 +419,19 @@ let __o$1=class __o {
         }
         return x;
     }
+    qyp(s, e = document) {
+        let el = this.gt?.parentNode;
+        const rs = () => {
+            if (typeof el?.matches !== "function") return null;
+            let m = el?.matches(s);
+            return (!el || (el === e && !m)) ? null :
+                m ? el :
+                    (el = el.parentNode, rs());
+        };
+        const f = rs();
+        this.#El = f ?? null;
+        return this;
+    }
     /**
     * Clone the given node.
     *
@@ -445,8 +452,7 @@ let __o$1=class __o {
         return b ? b : this;
     }
     del(e) {
-        e === undefined ?
-            this.gt.remove() : this.gt.parentNode.removeChild(e);
+        !e ? this.gt.remove() : this.gt.parentNode.removeChild(e);
         return this;
     }
     attr(type = null, val, e) {
@@ -475,45 +481,79 @@ let __o$1=class __o {
         }
         return this;
     }
-    gat = (t) => (this.gt.getAttribute(t));
+    gat = (t) => (this.gt.attributes[t]?.value);
+    nattr(type, val, ex) {
+        let el = this.gt, ct = el?.isConnected, a = el?.attributes, fn = el[`${/^r$/.test(ex) ? 'remove' : 'set'}Attribute`].bind(el), ty = __o.utils.type,
+            prop = k => el.hasOwnProperty(k) || /^\w+[A-Z]\w+$/.test(k);
+        if (ty(type, 'unu')) return a;
+        let h = v => `inner${v == "html" ? 'HTML' : 'Text'}`, s = k => /^(html|text)$/.test(k);
+        if (ty(type, "str")) {
+            if (ex == 'r') type = [type];
+            else { const f = type; type = {}, type[f] = val; }        }
+        if (ty(type, "obj")) {
+            __o.each(type, "e", ([k, v]) => {
+                (ct && prop(k)) ? el[k] = v :
+                    s(k) ? el[h(k)] = v :
+                        k == "class" && ty(v, 'obj') ? this.class(v) :
+                            k == "style" && ty(v, 'obj') ? this.css(v) :
+                                fn(k, v);
+            });
+        }
+        if (ty(type, "arr")) {
+            if (ex == 'r') type.forEach(v => fn(v));
+            else {
+                let fl = {};
+                return type.forEach(v =>
+                    fl[v] = ct && prop(v) ? el[v] :
+                        s(v) ? el[h(v)] :
+                            (a[v]?.value ?? null)
+                ), fl;
+            }
+        }
+        return this;
+    }
     static each(a, f, z) {
-        const { utils: { type: t } } = __o,
+        const { utils: { type: t } } = __o, al = (t(a, "arr") || t(a, "set") || t(a, "wSet") || t(a, 'map') || t(a, 'wMap') || t(a, 'obj')),
             fu = (j) => {
                 var c = (t(f, "str")) ? z : f;
-                if (t(c, "fn") && t(j, 'arr'))
+                //__o.log(a, f, z, j);
+                if (t(c, "fn") && al)
                     j.forEach((v, i) => c(v, i));
             };
-        if (t(f, "fn")) fu(t(a, "arr") ? a : Array.prototype.slice.call(a));
+        if (t(f, "fn")) fu(al && !a.item ? a : Array.prototype.slice.call(a));
         else if (t(f, "str"))
             fu(Object[f + (f == 'k' ? 'eys' : f == 'v' ? 'alues' : f == 'e' ? 'ntries' : 1)](a));
         return this;
     }
     each = __o.each;
     class(type, val, ...mor) {
-        const { utils: { type: t } } = __o,
-            f = i => i.search(/add|remove|toggle/g) !== -1;
-        var a = this.gt.classList;
-        if (t(type, 'str') && f(type))
-            a[type](val, ...mor);
-        else if (t(type, 'obj'))
-            this.each(type, 'k', e => f(e) ? a[e](type[e], ...mor) : 0);
+        const { utils: { type: z } } = __o, t = type,
+            f = i => /^(add|remove|toggle)$/.test(i);
+        const a = this.gt.classList;
+        if (z(t, 'str') && f(t)) a[t](val, ...mor);
+        else if (z(t, 'obj'))
+            __o.each(t, 'e', ([k, v]) => (f(k) ? a[k](...(z(v, 'arr') ? v : [v])) : 0));
         else { return a; }
         return this;
     }
-    css(type = 0, val = null) {
-        var e = this.gt.style, t = type, i = val;
+    css(type = 0, val = null, ex) {
+        var e = this.gt.style, t = type, i = val, ty = __o.utils.type;
         if (t == 0 && i == null)
             return e;
-        else if (__o.utils.type(t, "obj"))
-            this.each(t, "k", v => e[v] = t[v]);
-        else if (__o.utils.type(t, "str") && /:/g.test(t)) {
+        else if (ty(t, "obj")) __o.each(t, "e", v => e.setProperty(...v));
+        else if (ty(t, "str") && /:/g.test(t)) {
             let o = t.split(';');
             for (let d of o) {
                 let b = d.indexOf(':'), a = d.substring(0, b).trim().replace(/-([a-z])/g, (m, l) => l.toUpperCase());
                 e[a] = d.substring(b + 1).trim();
             }
         }
-        else if (i == null) return e[t];
+        else if (ex === "r") {
+            if (ty(t, "str")) t = [t];
+            if (ty(t, "arr"))
+                t.forEach(v => e.removeProperty(v.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()));
+        }
+        else if (i === null) return e[t];
         else e[t] = i;
         return this;
     }
@@ -529,10 +569,10 @@ let __o$1=class __o {
     hide(i) {
         var d = 'display', o = "_o-show", j = (k) => (this.attr(o, k).css(d, k ? 'block' : 'none'));
         if (!i)
-            j(this.gat(o) == 'false' || undefined || null ? true : false);
+            j(this.gat(o) == 'false' || undefined || null ? 1 : 0);
         else {
-            if (i == "b") j(true);
-            else if (i == "n") j(false);
+            if (i == "b") j(1);
+            else if (i == "n") j(0);
         }
         return this;
     }
@@ -545,17 +585,14 @@ let __o$1=class __o {
         if (t !== null) this.gt.textContent = t;
         return t == null ? this.gt.textContent : this;
     }
-    on(e, f, b) {
-        //if (Array.isArray(e)) return false;
-        var a = 'addEventListener';
-        if (__o.utils.type(e, "obj"))
-            __o.each(e, 'k', v => this.gt[a](v, e[v], f));
+    on(e, f, o) { return this.#evt(1, e, f, o); }
+    off(e, f, o) { return this.#evt(0, e, f, o); }
+    #evt(d, e, f, o) {
+        const a = `${d == 1 ? 'add' : 'remove'}EventListener`, { type: t } = __o.utils, el = this.gt;
+        if (t(e, "obj"))// can be a problem but for now i have not hit it
+            __o.each(e, 'e', ([k, v]) => el[a](k, ...(t(v, "obj") ? [v.f ?? v.fn, v.o ?? v.opt] : [v, f])));
         else
-            this.gt[a](e, f, b);
-        return this;
-    }
-    off(e, f, o) {
-        this.gt.removeEventListener(e, f, o);
+            el[a](e, f, o);
         return this;
     }
     static hw = (i) => {
@@ -658,19 +695,20 @@ let __o$1=class __o {
     } */
     //!===== needs checking ============== [?? 23/9/23]
     json(t = null, o = null, l = 0) {
-        var i, q, e = 's', p = "p", z = this.el,
+        let i, q;
+        const e = 's', p = "p", z = this.el,
             f = (s, x, k) => {
                 if (s === e) return JSON.stringify(x, null, k);
                 else if (s === p) {
-                    try { i = JSON.parse(x); } catch (e) { return false; }
+                    try { i = JSON.parse(x); } catch (e) { return null; }
                     return i;
                 }
             },
             x = (k, l) => (typeof k == l),
-            y = k => (x(k, 'object')),
-            w = k => (x(k, 'string'));
-        q = (y(t)) ? f(e, t, o) :
-            (w(t)) ? ((t == p || t == e) ? f(t, o ?? z, l ?? o) : f(p, t, o)) :
+            y = k => (x(k, 'obj')),
+            w = k => (x(k, 'str'));
+        q = y(t) ? f(e, t, o) :
+            w(t) ? ((t == p || t == e) ? f(t, o ?? z, l ?? o) : f(p, t, o)) :
                 (t == null) ? ((y(z)) ? f(e, z) : (w(z)) ? f(p, z) : null) : null;
         return (q == null) ? this : q;
     }
@@ -682,32 +720,6 @@ let __o$1=class __o {
         window.open(this.el, a, b);
     }
     // @deprecated: remove secToHms, milliToMS, msToTime it has moved to __o.utils.Time
-    /* secToHms() {
-        var d = Number(this.el), i = 3600, j = 60, f = Math.floor,
-            m = f(d % i / j),
-            s = f(d % i % j);
-        return ((m > 0 ? m + (m == 1 ? " : " : " : ") : "") +
-            (s > 0 ? s + (s == 1 ? " " : "") : ""));
-    } */
-    // @deprecated
-    /* milliToMS(i) {
-        var s = Number(i ?? this.el ?? 0);
-        var Mi = Math.floor(s / 60);
-        Mi = (Mi >= 10) ? Mi : "0" + Mi;
-        s = Math.floor(s % 60);
-        s = (s >= 10) ? s : "0" + s;
-        return Mi + ":" + s;
-    } */
-    // @deprecated 
-    /* msToTime(s) {
-        var ms = s % 1000;
-        s = (s - ms) / 1000;
-        var secs = s % 60;
-        s = (s - secs) / 60;
-        var mins = s % 60;
-        var hrs = (s - mins) / 60;
-        return hrs + ':' + mins + ':' + secs + '.' + ms;
-    } */
 
     /*static nav(i) {
         var a =
@@ -770,78 +782,60 @@ let __o$1=class __o {
         return this.#El;
     }
 
-    // @deprecating: move to static
-    //createObserver = __o.mkObs;
     //-------
     static mkEl = (type, props, ...c) => ({ type, props: props || {}, children: c || [] });
-    //static createElement = __o.mkEl;
-    // @deprecating move to static
-    //createElement = __o.mkEl;
     //-------
     static mknode(obj, dg) {
-        const { utils: { type: u }, log } = __o;
-        const tt = (a, b) => (a.map(v => b + v));
-        const g = ['svg', 'path', "circle", "clipPath", "defs", "desc", "ellipse", "g", "image", "use", 'symbol', 'text', 'tspan', 'foreignObject', 'line', 'marker', 'mask', 'metadata', 'pattern', 'polygon', 'polyline', 'rect'/* , 'stop', 'view' */]
-            .concat(
-                tt(["", "path"], 'hatch'),
-                tt(["", "Motion", "Transform"], "animate"),
-                tt([
+        const { utils: { type: u }, log, _pEl } = __o;
+        const tt = (a, b) => a.map(v => b + v);
+        const g = ['svg', 'path', "circle", "clipPath", "defs", "desc", "ellipse", "g",
+            "image", "use", 'symbol', 'text', 'tspan', 'foreignObject', 'line', 'marker',
+            'mask', 'metadata', 'pattern', 'polygon', 'polyline', 'rect',/* , 'stop', 'view' */
+            ...tt(['', "path"], 'hatch'),
+            ...tt(['', "Motion", "Transform"], "animate"),
+            ...tt(
+                [
                     "Blend", "ColorMatrix", "ComponentTransfer", "Composite", "ConvolveMatrix", "DiffuseLighting",
-                    "DisplacementMap", "DistantLight", "DropShadow", "Flood", "GaussianBlur",
-                    "Image", , "Morphology", "Offset", "PointLight"]
-                    .concat(
-                        tt(["A", "B", "G", "R"], 'Func'),
-                        tt(["", "Node"], "Merge")
-                    ),
-                    'fe')
-            );
+                    "DisplacementMap", "DistantLight", "DropShadow", "Flood", "GaussianBlur", "Image", "Morphology", "Offset", "PointLight",
+                    ...tt(["A", "B", "G", "R"], 'Func'), ...tt(['', "Node"], "Merge")
+                ], 'fe')
+        ];
         const r = 'Element';
         const dd = (p = '', ...k) => document[`create${p}`](...k);
-
-        if (dg)
-            log('__o.mknode', g);
         function mk(nn) {
             if (u(nn, 'unu')) return null;
             if (u(nn, 'str') || u(nn, 'num')) return dd('TextNode', nn);
             if (dg) log('__o.mknode_svg', nn.type, g.indexOf(nn.type));
-            const { t, c, i } = parse(nn.type);
-            if (dg) log('__o.mknode_p: ', 'el:', t, 'c:', c, 'i:', i);
-            const e = g.indexOf(t) > -1 ?
-                dd(r + 'NS', "http://www.w3.org/2000/svg", t) :
-                dd(r, t),
-                z = _c(e);
-            if (t === 'textarea') {
-                z.val(nn.props.value);
-                nn.props.value = null;
-            }
-            if (i) nn.props.id = i;
-            if (c) nn.props.class = c;
-            [setProps, on].forEach(v => v(nn.props, z));
+            const tg = _pEl(nn), { t, c, i } = tg;
+            if (dg)
+                log('__o.mknode_p: ', 'el:', t, 'c:', c, 'i:', i);
+            const e = dd(...g.indexOf(t) > -1 ? [r + 'NS', "http://www.w3.org/2000/svg"] : [r], tg.t);
+            setProps(nn.props, e, tg);
             if (nn.children)
-                nn.children.map(mk).forEach(v => v ? e.appendChild(v) : 0);
+                e.append(...nn.children.map(mk).filter(v => !!v));
             return e;
         }
-        let parse = __o._pEl;
-        let on = (props, z) => {
-            if (!z.gt.__listen) z.gt.__listen = {};
-            __o.each(props, "k", n => {
-                if (isEvt(n)) {
-                    if (dg) log('__o.on', n, props[n]);
-                    const a = z.gt.__listen[n] = props[n];
-                    z.on(n.slice(2).toLowerCase(), ...(u(a, 'obj') ? [a.f ?? a.fn, a.o ?? a.opt] : [a]));
-                }            });
-        };
-        let isEvt = (n) => /^on/.test(n);
-        //let isCustom = (n) => (isEvt(n)/*  || n === 'forceUpdate' */);
-        let setProps = (pro, y) => {
-            let a = Object.fromEntries(Object.entries(pro).filter(([k]) => !isEvt(k)));
-            y.attr(a);
-        };
+        const skip = (n) => (/^(forceUpdate|children|id|class(Name|))$/.test(n));
+        function setProps(props, e, tg) {
+            let attr = {}, sp = {}, evts = {}, c = _c(e);
+            if (!e.__listen) e.__listen = {};
+            ['id', 'class'].forEach(v => tg[v[0]] ? sp[v] = tg[v[0]] : 0);
+            for (const [k, v] of Object.entries(props)) {
+                if (/^on/.test(k))
+                    evts[k.slice(2).toLowerCase()] = e.__listen[k] = v;
+                else if (tg.t == 'textarea' && k == 'value')
+                    c.val(v);
+                else if (skip(k)) continue;
+                else attr[k] = v;
+            }
+            c.nattr(sp).nattr(attr).on(evts);
+            return e;
+        }
         return mk(obj);
     }
     static _pEl(str) {
         // Match the tag, id, classes, and ignore attribute selectors
-        const { utils: { type }/* , log */ } = __o;
+        const { utils: { type }, log } = __o;
         let t, c, i, o;
         //log(str);
         const m = ((type(str, 'obj')) ? str.type : str)?.match(/([.#]?[\w-]+)(?![^\[]*\])/g);
@@ -852,32 +846,33 @@ let __o$1=class __o {
                         t = h;
             }
             if (type(str, 'obj') && str.props) {
-                c = c && str.props.class ? `${c} ${o.class}` : c;
-                c = c && str.props.className ? `${c} ${o.className}` : c;
+                o = str.props.class ? str.props.class : o;
+                o = str.props.className ? `${o ? o + ' ' : ''}${str.props.className}` : o;
+                c = c ? `${c}${o ? ' ' + o : ''}` : o;
+                i = i ?? str.props.id;
             }
             return { t: t || 'div', c, i };
         }
     }
-    // @deprecating: move to static
-    //mknode = __o.mknode;
     //-------
-    // @deprecating: move to __o.utils.math.per[to||from](total, avail, cur) (util.js)
-    //static toPer = (total, avail, cur) => (cur / (total - avail) * 100);
-    //static fromPer = (total, avail, per) => ((per / 100) * (total - avail));
-    // @deprecating: move to __o.utils.math(util.js)
-    //toPer = __o.toPer;
-    //fromPer = __o.toPer;
-    //-------
-    static cssvar(attr = null, val = null) {
+    static cssvar(attr = null, val = null, els = ":root") {
         if (!attr) return;
-        let el = _c(':root').gt.style, p = 'etProperty', f, o = __o.utils.type(attr, 'obj');
+        const { utils: { type: u } } = __o;
+        const el = (els?.gt ?? _c(els).gt).style, p = 'etProperty', o = u(attr, 'obj'), a = u(attr, 'arr');
+        let f;
         if (o)
             __o.each(attr, 'k', (v, i) => el[`s${p}`](`--${v}`, attr[v]));
+        else if (a)
+            f = {},
+                __o.each(attr, (v, i) => f[v] = el[`g${p}Value`](`--${v}`));
         else
             f = el[(!val) ? `g${p}Value` : `s${p}`](`--${attr}`, val);
-        return (o || val != null) ? this : f;
+        return f ?? this;
     }
-    //cssvar = __o.cssvar;
+    cssvar(attr = null, val = null) {
+        const f = __o.cssvar(attr, val, this);
+        return (f == __o) ? this : f;
+    };
     static log = console.log.bind(console);
     constructor(_) { if (_ != null || undefined) this._(_); };
 };
