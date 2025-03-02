@@ -251,7 +251,7 @@ CoreWeb includes submodules and plugins that can be used to extend its functiona
   esm:
 
   ```js
-    import { _ws } from "https://github.com/3s-217/coreweb-js/releases/latest/download/ws-min.js"
+    import { _ws } from "https://github.com/3s-217/coreweb-js/releases/latest/download/ws.es-min.js"
   ```
 
   ___
