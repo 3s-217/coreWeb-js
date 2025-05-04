@@ -103,7 +103,7 @@ export default async (rt) => {
         //data-|aria-|
         const pt = /^([a-z]+(?:[A-Z][a-z]+)+|value|checked|disabled|readonly|style)$/;
         //===================================
-        const [fevts, fattr, fprop, fcss, ecss] = Array(5).fill().map(v=>new Map());
+        const [fevts, fattr, fprop, fcss, ecss] = Array(5).fill().map(v => new Map());
         tcss(rEl.style.cssText, ecss);
         //====================================
         each(vEl.props, 'e', ([k, v]) => {
@@ -164,7 +164,7 @@ export default async (rt) => {
         //===============================
         //* event listeners
         if (len(fevts) || !Okl(ltn)) {
-            let [add, rm, chg] = Array(3).fill(Set);
+            let [add, rm, chg] = Array(3).fill().map(v => new Set());
             for (let [k, v] of fevts)
                 if (!ltn[k]) add.add(k);
                 else if (ltn[k] && ltn[k]?.toString() !== v?.toString()) chg.add(k);

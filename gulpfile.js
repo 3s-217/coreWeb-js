@@ -57,7 +57,7 @@ const CSS = {
 const JS = {
   js: {
     typ: "rp-l",
-    files: ["core", "util", "vdom"].map(_js),
+    files: ["core", "util", "vdom", 'state'].map(_js),
     clean: [
       ...buildLib("core", 'core', [
         ...(["debug"].map(removeCode)),

@@ -1,6 +1,6 @@
 # coreWeb
 
-version: ```0.13.6```
+version: ```0.13.7```
 
 A JavaScript library for manipulating the HTML DOM, offering multiple build types for flexible integration.
 
@@ -295,6 +295,13 @@ The prebuilt folder contains prebuilt versions of the lib and it submodules. The
 ## Changelogs
 
 ___
+[5/04/2025]
+
+- Version change
+  - ```0.13.6``` >> ```0.13.7```
+- Json
+  - add error to update all json usage from __o inst to static ```__o.json(type,data,...extra)```
+
 [2/03/2025]
 
 - Version change

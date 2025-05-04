@@ -7,7 +7,7 @@
  * @description Core utilities
  * @license MIT
  * @author 3s217
- * @version 0.13.3
+ * @version 0.13.7
  */
 const utils = async (rt) => {
     if (!rt) throw new Error('util requires extens {./core.js}');
@@ -251,7 +251,102 @@ const utils = async (rt) => {
     };
     rt.utils.Time.ctime = rt.utils.Time.fmt;
     //util.copy(__o.utils, util);
-};/* ================================================ */
+};class _State extends EventTarget {
+    #s = null;
+    updTimeout = null;
+    lstnrs = new Map();
+    static dc(obj) {
+        return JSON.parse(JSON.stringify(obj));
+    }
+    static nested(obj, path, v, act) {
+        const ps = path.split('.');
+        const l = ps.pop();
+        const tgt = ps.reduce((o, k) => o[k] = o[k] ?? {}, obj);
+        if (act === 'set') tgt[l] = v;
+        else if (act === 'rm' && tgt && tgt.hasOwnProperty(l))
+            delete tgt[l];
+        else return tgt[l];
+    }
+    #upK = new Set();
+    #schUpd(k) {
+        if (this.updTimeout) clearTimeout(this.updTimeout);
+        this.#upK.add(k);
+        this.updTimeout = setTimeout(() => { this.#flush(); }, 100); // Adjust the timeout value as needed
+    }
+    #flush() {
+        // Update the state and emit events here
+        for (const k of this.#upK) {
+            let e = `update:${k}`;
+            this.hasEvtLstnr(e) ?
+                this.emit(e, this.get(k)) : 0;
+            this.#upK.delete(k);
+        }
+        this.updTimeout = null;
+    }
+    get(n) {
+        if (!this.#s) throw new Error('State is not loaded');
+        const v = n === undefined ? this.#s : _State.nested(this.#s, n, null, 'get');
+        return v ? _State.dc(v) : v;
+    }
+    set(n, d) {
+        this.qset(n, d);
+        this.#schUpd(n);
+    }
+    qset(n, d) {
+        if (!this.#s) throw new Error('State is not loaded');
+        if (__o.utils.type(n, 'str') && n.includes('.')) {
+            _State.nested(this.#s, n, d, 'set');
+        } else {
+            this.#s[n] = Array.isArray(this.#s[n]) ? [...this.#s[n], ...d] : __o.utils.type(d, 'obj') ? { ...this.#s[n], ...d } : d;
+        }
+        // No event triggering here
+    }
+    rm(n) {
+        if (!this.#s) throw new Error('State is not loaded');
+        if (__o.utils.type(n, 'str') && n.includes('.')) {
+            _State.nested(this.#s, n, null, 'rm');
+        } else {
+            delete this.#s[n];
+        }
+        this.emitSpecEvt(n, this.#s);
+    }
+    rs() {
+        if (!this.#s) throw new Error('State is not loaded');
+        this.#s = null;
+        this.emit('rs', this.#s);
+    }
+    async ld(data) {
+        if (__o.utils.type(data, 'str') && data !== "") {
+            try {
+                const res = await fetch(data);
+                this.#s = await res.json();
+            } catch (err) {
+                console.error('Error fetching data:', err);
+            }
+        } else if (__o.utils.type(data, 'obj')) this.#s = data;
+        else throw new Error('Invalid data type. Expected a non-empty string or an object.');
+    }
+    on(evt, cb) {
+        _c(this).on(evt, cb);
+        this.#updLstnrCnt(evt, 1);
+    }
+    off(evt, cb) {
+        _c(this).off(evt, cb);
+        this.#updLstnrCnt(evt, -1);
+    }
+    emit(evt, data) {
+        this.dispatchEvent(new CustomEvent(evt, { detail: data }));
+    }
+    hasEvtLstnr(evt) {
+        return this.lstnrs.has(evt) && this.lstnrs.get(evt) > 0;
+    }
+    #updLstnrCnt(evtName, cnt) {
+        if (!this.lstnrs.has(evtName)) {
+            this.lstnrs.set(evtName, 0);
+        }
+        this.lstnrs.set(evtName, this.lstnrs.get(evtName) + cnt);
+    }
+}/* ================================================ */
 /* =========== core.js [0.13.2] lib ================== */
 /* ======== function _c() || class __o ============ */
 /* ================================================ 
@@ -483,13 +578,16 @@ let __o$1=class __o {
     }
     gat = (t) => (this.gt.attributes[t]?.value);
     nattr(type, val, ex) {
-        let el = this.gt, ct = el?.isConnected, a = el?.attributes, fn = el[`${/^r$/.test(ex) ? 'remove' : 'set'}Attribute`].bind(el), ty = __o.utils.type,
+        let el = this.gt, ct = el?.isConnected, a = el?.attributes,
+            fn = el[`${/^r$/.test(ex) ? 'remove' : 'set'}Attribute`].bind(el),
+            ty = __o.utils.type,
             prop = k => el.hasOwnProperty(k) || /^\w+[A-Z]\w+$/.test(k);
         if (ty(type, 'unu')) return a;
         let h = v => `inner${v == "html" ? 'HTML' : 'Text'}`, s = k => /^(html|text)$/.test(k);
         if (ty(type, "str")) {
-            if (ex == 'r') type = [type];
-            else { const f = type; type = {}, type[f] = val; }        }
+            const f = type;
+            type = (ex == 'r') ? [f] : { [f]: val };
+        }
         if (ty(type, "obj")) {
             __o.each(type, "e", ([k, v]) => {
                 (ct && prop(k)) ? el[k] = v :
@@ -502,12 +600,11 @@ let __o$1=class __o {
         if (ty(type, "arr")) {
             if (ex == 'r') type.forEach(v => fn(v));
             else {
-                let fl = {};
-                return type.forEach(v =>
-                    fl[v] = ct && prop(v) ? el[v] :
+                return type.reduce((fl, v) => (
+                    (fl[v] = ct && prop(v) ? el[v] :
                         s(v) ? el[h(v)] :
-                            (a[v]?.value ?? null)
-                ), fl;
+                            (a[v]?.value ?? null)), fl), {}
+                );
             }
         }
         return this;
@@ -561,7 +658,12 @@ let __o$1=class __o {
         var a = (ex == null) ? this.gt : this.get(op);
         var b = (ex == null) ? op : sty;
         var c = ex || sty;
-        return window.getComputedStyle(a, b).getPropertyValue(c);
+        return __o.gcs(a, c, b);
+    }
+    static gcs(tr, sty = null, ex = null) {
+        var a = (tr instanceof __o) ? tr : _c$1(tr).gt;
+        var b = window.getComputedStyle(a, ex);
+        return sty ? b.getPropertyValue(sty) : b;
     }
     get rect() {
         return this.gt.getBoundingClientRect();
@@ -645,6 +747,7 @@ let __o$1=class __o {
     } */
     static async fetch(obj = {}, fn) {
         let { url, method, body, head, type, username, password, cb } = obj, h = "headers";
+        const { type: t } = __o.utils;
         fn = fn ?? cb;
         const opt = {
             method: method ?? type,
@@ -655,21 +758,21 @@ let __o$1=class __o {
             opt[h] = opt[h] || {};
             opt[h]['Authorization'] = 'Basic ' + btoa(username + ':' + password);
         }
+        let r;
         try {
             const rs = await fetch(url, opt);
             const ct = rs[h].get('content-type');
             let data = ct.includes('application/json') ? await rs.json() :
                 ct.includes('text') ? await rs.text() : await rs.blob();
-            const r = { status: rs.status, data };
-            if (typeof fn === 'function') fn(r);
-            else return r;
+            r = { status: rs.status, data };
         } catch (err) {
-            const r = { status: 0, data: err.message };
-            if (typeof fn === 'function') fn(r);
-            else return r;
+            r = { status: 0, data: err.message };
         }
+        if (t(fn, 'fn')) fn(r);
+        else return r;
     }
-    //!===== needs checking ============== [?? 23/9/23]
+    //!===== ↑ use static fetch (__o.fetch) ↑ ============== [?? 4/March/25]
+    //!===== for long lived use ws  ============== [?? 4/March/25]
     /* ajax(f = null, ex = null, err = null) {
         var type = Object.keys(this.el)[0];
         let cb;
@@ -693,24 +796,25 @@ let __o$1=class __o {
         // else if (f != null && typeof f == 'object') { ff(f); b = f.body; }
         //xhr.send(b);
     } */
-    //!===== needs checking ============== [?? 23/9/23]
-    json(t = null, o = null, l = 0) {
-        let i, q;
-        const e = 's', p = "p", z = this.el,
-            f = (s, x, k) => {
-                if (s === e) return JSON.stringify(x, null, k);
-                else if (s === p) {
-                    try { i = JSON.parse(x); } catch (e) { return null; }
-                    return i;
-                }
-            },
-            x = (k, l) => (typeof k == l),
-            y = k => (x(k, 'obj')),
-            w = k => (x(k, 'str'));
-        q = y(t) ? f(e, t, o) :
-            w(t) ? ((t == p || t == e) ? f(t, o ?? z, l ?? o) : f(p, t, o)) :
-                (t == null) ? ((y(z)) ? f(e, z) : (w(z)) ? f(p, z) : null) : null;
-        return (q == null) ? this : q;
+    //!===== use static json (__o.json)\nstop using this inst __o' json method ============== [?? 4/March/25]
+
+    json(t, o, l = 0) {
+        throw new Error(`use static json (__o.json)\nstop using this inst __o' json method`);
+    }
+    static json(t, o, ...n) {
+        const z = __o.utils.type;
+        var f = (s, x) => {
+            var a = !!0;
+            if (s === "s") a = JSON.stringify(x, ...n);
+            else if (s === "p") {
+                try { a = JSON.parse(x, ...n); }
+                catch (e) { }
+            }
+            return;
+        };
+        if (z(t, "obj") || z(t, "arr")) return f("s", t);
+        else if (z(t, "str"))
+            return ((t == "p" || t == "s") && !z(o, 'unu')) ? f(t, o) : f("p", t);
     }
 
 
@@ -817,7 +921,7 @@ let __o$1=class __o {
         }
         const skip = (n) => (/^(forceUpdate|children|id|class(Name|))$/.test(n));
         function setProps(props, e, tg) {
-            let attr = {}, sp = {}, evts = {}, c = _c(e);
+            let attr = {}, sp = {}, evts = {}, c = _c$1(e);
             if (!e.__listen) e.__listen = {};
             ['id', 'class'].forEach(v => tg[v[0]] ? sp[v] = tg[v[0]] : 0);
             for (const [k, v] of Object.entries(props)) {
@@ -828,7 +932,7 @@ let __o$1=class __o {
                 else if (skip(k)) continue;
                 else attr[k] = v;
             }
-            c.nattr(sp).nattr(attr).on(evts);
+            c.nattr({ ...attr, ...sp }).on(evts);
             return e;
         }
         return mk(obj);
@@ -836,7 +940,7 @@ let __o$1=class __o {
     static _pEl(str) {
         // Match the tag, id, classes, and ignore attribute selectors
         const { utils: { type }, log } = __o;
-        let t, c, i, o;
+        let t, c, i, o, p;
         //log(str);
         const m = ((type(str, 'obj')) ? str.type : str)?.match(/([.#]?[\w-]+)(?![^\[]*\])/g);
         if (m) {
@@ -846,10 +950,11 @@ let __o$1=class __o {
                         t = h;
             }
             if (type(str, 'obj') && str.props) {
-                o = str.props.class ? str.props.class : o;
-                o = str.props.className ? `${o ? o + ' ' : ''}${str.props.className}` : o;
+                p = str.props;
+                o = p.class ? p.class : o;
+                o = p.className ? `${o ? o + ' ' : ''}${p.className}` : o;
                 c = c ? `${c}${o ? ' ' + o : ''}` : o;
-                i = i ?? str.props.id;
+                i = i ?? p.id;
             }
             return { t: t || 'div', c, i };
         }
@@ -858,15 +963,15 @@ let __o$1=class __o {
     static cssvar(attr = null, val = null, els = ":root") {
         if (!attr) return;
         const { utils: { type: u } } = __o;
-        const el = (els?.gt ?? _c(els).gt).style, p = 'etProperty', o = u(attr, 'obj'), a = u(attr, 'arr');
+        const el = (els?.gt ?? _c$1(els).gt).style, p = 'etProperty', o = u(attr, 'obj'), a = u(attr, 'arr'),
+            g = `g${p}Value`, s = `s${p}`;
         let f;
         if (o)
-            __o.each(attr, 'k', (v, i) => el[`s${p}`](`--${v}`, attr[v]));
+            __o.each(attr, 'e', ([k, v], i) => el[s](`--${k}`, v));
         else if (a)
-            f = {},
-                __o.each(attr, (v, i) => f[v] = el[`g${p}Value`](`--${v}`));
+            f = attr.reduce((a, v) => ({ ...a, [v]: el[g](`--${v}`) }), {});
         else
-            f = el[(!val) ? `g${p}Value` : `s${p}`](`--${attr}`, val);
+            f = el[(!val) ? g : s](`--${attr}`, val);
         return f ?? this;
     }
     cssvar(attr = null, val = null) {
@@ -877,16 +982,13 @@ let __o$1=class __o {
     constructor(_) { if (_ != null || undefined) this._(_); };
 };
 //=========================== 
-function _c(_) { return new __o$1(_); }utils(__o$1);
-
-
-//=======================  short form  =================================
-//! DO NOT use with _o or _n    
-//! init a new instance of __o using __o or _c
-// ===================  =========================== 
+function _c$1(_) { return new __o$1(_); }__o$1.l = __o$1.log;
+utils(__o$1);
+__o$1._State = _State;
+// ================================================ 
 // @deprecating 
 const _o = new __o$1();
-function _n(_) { return _o._(_); }
+function _n(_) { return _o._(_); }//=======================  short form  =================================
 // @deprecating
 _o.g = _o.get; _o.l = _o.log; _o.h = _o.hide; _o.at = _o.attr; _o.fr = _o.frame;
 _o.make = _o.mk;
@@ -921,4 +1023,4 @@ export const wlog = (text, extra = [], ...a) => {
     transform-style: flat;
     transform-origin: center;
     transform-box: fill-box; */
-/* =================== the End =========================== */export{__o$1 as __o,_c,_n,_o};
+/* =================== the End =========================== */export{__o$1 as __o,_c$1 as _c,_n,_o};

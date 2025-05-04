@@ -7,7 +7,7 @@
  * @description Core utilities
  * @license MIT
  * @author 3s217
- * @version 0.13.3
+ * @version 0.13.7
  */
 export default async (rt) => {
     if (!rt) throw new Error('util requires extens {./core.js}');

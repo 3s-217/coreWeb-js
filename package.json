@@ -1,6 +1,6 @@
 {
   "name": "coreweb",
-  "version": "0.13.6",
+  "version": "0.13.7",
   "description": "Web lib",
   "main": "./build/core.cjs.js",
   "module": "./build/core.es.js",
