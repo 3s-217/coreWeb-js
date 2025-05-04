@@ -810,7 +810,7 @@ let __o$1=class __o {
                 try { a = JSON.parse(x, ...n); }
                 catch (e) { }
             }
-            return;
+            return a;
         };
         if (z(t, "obj") || z(t, "arr")) return f("s", t);
         else if (z(t, "str"))
